@@ -1,7 +1,8 @@
 try:
-    from manage import internetConnected, checkForHazPyUpdates, checkForToolUpdates
-    checkForHazPyUpdates()
+    from src.manage import internetConnected, checkForHazPyUpdates, checkForToolUpdates
     checkForToolUpdates()
+    checkForHazPyUpdates()
+    
 
 except:
     import ctypes
