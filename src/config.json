@@ -41,10 +41,10 @@
   },
   "test": {
     "hazpyInitUrl": "https://raw.githubusercontent.com/nhrap-hazus/hazpy/test/hazpy/__init__.py",
-    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/master.zip",
-    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/master/src/__init__.py",
+    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/dev1.zip",
+    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/dev1/src/__init__.py",
     "virtualEnvironment": "hazus_env",
-    "condaChannel": "nhrap",
+    "condaChannel": "nhrap-test",
     "pythonPackage": "hazpy",
     "pythonVersion": "3.7",
     "httpTimeout": 5
