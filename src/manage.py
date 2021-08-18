@@ -52,7 +52,7 @@ class Manage:
         """
         """
         path = os.environ['PATH']
-        condaPaths = [x for x in path.split(';') if 'conda' in x]
+        condaPaths = [x for x in path.split(';') if 'conda' in x or 'miniforge' in x]
         if len(condaPaths) > 0:
             return True
         return False
@@ -269,9 +269,13 @@ class Manage:
                         # create the virtual environment
                         self.createHazPyEnvironment()
                     else:
-                        call('{ca} {ve} && start /min python {up}'.format(ca=self.conda_activate, ve=self.virtual_environment, up=update_path), shell=True)
-                        call('{ca} {ve} && start python {ap}'.format(ca=self.conda_activate, ve=self.virtual_environment, ap=app_path), shell=True)             
+                        try:
+                            call('{ca} {ve} && start /min python {up}'.format(ca=self.conda_activate, ve=self.virtual_environment, up=update_path), shell=True)
+                            call('{ca} {ve} && start python {ap}'.format(ca=self.conda_activate, ve=self.virtual_environment, ap=app_path), shell=True)
+                        except Exception as e:
+                            print(e)
                 except Exception as e:
+                    print(e)
                     error = str(sys.exc_info()[0])
                     self.messageBox(0, u"Unexpected error: {er} | If this problem persists, contact hazus-support@riskmapcds.com.".format(er=error), u"HazPy", 0x1000 | 0x4)
                     raise(e)
