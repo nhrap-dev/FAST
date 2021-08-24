@@ -113,7 +113,7 @@ class Manage:
             )
             self.messageBox(
                 0,
-                u'The Hazus Export Tool was successfully installed! The update will take effect when the tool is reopened.',
+                u'The Hazus FAST Tool was successfully installed! The update will take effect when the tool is reopened.',
                 u"HazPy",
                 0x1000 | 0x4,
             )
@@ -272,7 +272,7 @@ class Manage:
             app_path ([type]): [description]
             update_path ([type]): [description]
         """
-        print('Starting the HAZUS Export application...')
+        print('Starting the HAZUS FAST application...')
         if self.isCondaInPath():
             try:
                 run(
