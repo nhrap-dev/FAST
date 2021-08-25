@@ -47,8 +47,8 @@
   },
   "dev": {
     "hazpyInitUrl": "https://raw.githubusercontent.com/nhrap-dev/hazpy/dev/hazpy/__init__.py",
-    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/add-miniforge.zip",
-    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/add-miniforge/src/__init__.py",
+    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/refs/heads/dev.zip",
+    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/dev/src/__init__.py",
     "virtualEnvironment": "hazus_fast_env",
     "pythonPackage": "hazpy",
     "httpTimeout": 5
