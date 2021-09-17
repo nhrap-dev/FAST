@@ -1,0 +1,17 @@
+{
+  "Area": [ "Area", "area", "AREA" ],
+  "BDDF_ID": [ "BuildingDDF", "BDDF_ID", "BldgDamageFnID" ],
+  "CDDF_ID": [ "ContentDDF", "CDDF_ID", "ContDamageFnId" ],
+  "ContentCost": [ "ContentCost", "CONTENTCOST", "contentcost", "Content_Cost", "content_cost", "Content_cost", "ContentValue" ],
+  "Cost": [ "Cost", "COST", "cost", "BuildingValue" ],
+  "FirstFloorHt": [ "FirstFloorHt" ],
+  "FoundationType": [ "FoundationType", "Foundation_Type" ],
+  "IDDF_ID": [ "InventoryDDF", "IDDF_ID", "InvDamageFnId" ],
+  "InvCost": [ "InvCost", "invcost" ],
+  "Latitude": ["Latitude", "latitude", "LATITUDE"],
+  "Longitude": [ "Longitude", "longitude", "LONGITUDE" ],
+  "NumStories": [ "NumStories", "NumberStories", "Num_Stories", "Number_Stories" ],
+  "OCC": [ "Occupancy", "Occ" ],
+  "SOID": [ "SpecificOcc_ID", "SOID" ],
+  "UserDefinedFltyId": [ "UserDefinedFltyId", "userdefinedfltyid", "FltyId", "fltyid", "FacilityId", "facilityid", "Flty_Id", "OJECTID", "objectid", "ObjectId", "ID", "Id", "id" ]
+}

@@ -127,7 +127,10 @@ def makeform(root, fields):# Assemble and format the fields to map from the list
 
 def checkform():# Check validity of form entries
     root.fields = {key:''for key, value in fields.items()}
+    print(root.fields)
     for key, field in fields.items():
+         print(f'key: {key}') # debug
+         print(f'field: {field}') # debu
          #if field != 'Depth Grid (ft)**' and field != 'Coastal Flooding attribute (flC)*':# Not needed for raster input box
          if field != fields['raster'] and field != fields['flC']:# Not needed for raster input box
               color = "yellow" if '*' not in field else "red"
