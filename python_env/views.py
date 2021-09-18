@@ -9,6 +9,9 @@ import json
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
+from tkinter import messagebox as messagebox
+from threading import Thread
+import ctypes
 import udf_field_mapping
 #from hazpy.flood import UDF
 
@@ -20,6 +23,7 @@ class GUI(tk.Frame):
 
         # Controller attributes   
         self.selected_flood_type = tk.StringVar() # string: Riverine, Coastal A, Coastal V
+        self.selected_flood_type_converted = tk.StringVar() #HazardRiverine, V, CAE from lookup json; for use in udf
 
         self.selected_analysis_type = tk.StringVar() # string: Standard, AAL, AAL w/PELV; controls which raster frame to show
 
@@ -29,6 +33,8 @@ class GUI(tk.Frame):
 
         self.selected_udf = tk.StringVar() # path to csv file: C:\_repositories\Development\FAST\UDF\ND_Minot_UDF.csv
         self.selected_udf_fields_mapped = [] # List of display name, udf field and required, updates when udf csv file selected
+        self.selected_udf_fields_mapped_ordered = []
+        self.selected_udf_fields_required_mapped = tk.BooleanVar()
 
         self.rasters = ['Raster A','raster b','rASTER c','RASTER d','Raster E','So many rasters','Should be depth grid'] #TODO get rasters from folder
 
@@ -66,18 +72,32 @@ class select_flood_type_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_floodtype = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_floodtype.configure(text=' SELECT A FLOOD TYPE ')
-        self.labelframe_floodtype.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_floodtype.grid(column=0, row=0, sticky='ew')
 
         self.combobox_floodtype = ttk.Combobox(self.labelframe_floodtype, width=40)
         self.combobox_floodtype.configure(values=self.flood_types)
         self.combobox_floodtype.config(state='readonly')
         self.combobox_floodtype.bind("<<ComboboxSelected>>", self._set_floodtype)
+        self.combobox_floodtype.bind("<<ComboboxSelected>>", self._set_selected_flood_type_converted, add="+")
         self.combobox_floodtype.grid(column=0, row=1, padx=5, pady=5)
 
     def _set_floodtype(self, *args):
         ''' '''
         self.controller.selected_flood_type.set(self.combobox_floodtype.get())
-        print(f"Selection: {self.controller.selected_flood_type.get()}")
+        print(f"Selection Flood Type: {self.controller.selected_flood_type.get()}")
+
+    def _set_selected_flood_type_converted(self, *args):
+        ''' Input into UDF requires specific flC values '''
+        flood_type_lookup = self._get_json_data('hazard_types.json' )
+        lookup_value = flood_type_lookup[self.controller.selected_flood_type.get()]
+        self.controller.selected_flood_type_converted.set(lookup_value)
+        print(f"Selection Flood Type Converted for UDF: {self.controller.selected_flood_type_converted.get()}")
+
+    def _get_json_data(self, file):
+        ''' Load a json file '''
+        with open(os.path.join(Path(__file__).parent, file)) as json_file:
+            data = json.load(json_file)
+        return data
 
 class select_analysis_type_frame(ttk.Frame):
     ''' Standard, AAL, AAL w/PELV 
@@ -94,7 +114,7 @@ class select_analysis_type_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_analysistype = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_analysistype.configure(text=' SELECT AN ANALYSIS TYPE ')
-        self.labelframe_analysistype.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_analysistype.grid(column=0, row=0, sticky='ew')
 
         self.combobox_analysistype = ttk.Combobox(self.labelframe_analysistype, width=40)
         self.combobox_analysistype.configure(values=self.controller.analysis_types)
@@ -106,7 +126,7 @@ class select_analysis_type_frame(ttk.Frame):
     def _set_analysistype(self, *args):
         ''' '''
         self.controller.selected_analysis_type.set(self.combobox_analysistype.get())
-        print(f"Selection: {self.controller.selected_analysis_type.get()}")
+        print(f"Selection Analysis Type: {self.controller.selected_analysis_type.get()}")
 
     def _clear_raster_selections(self):
         ''' Remove any selected hazards '''
@@ -135,7 +155,6 @@ class select_analysis_type_frame(ttk.Frame):
         self._clear_raster_selections()
         self._hide_all_rasterframes()
         analysis_type = self.controller.selected_analysis_type.get()
-        print(f"analysis type: {analysis_type}")
         if analysis_type == 'Standard':
             self.controller.select_raster_standard_frame.grid()
         elif analysis_type == 'Average Annualized Loss (AAL)':
@@ -154,7 +173,7 @@ class select_raster_default(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_selectdefaultraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_selectdefaultraster.configure(text=' SELECT DEPTH GRID(S) ')
-        self.labelframe_selectdefaultraster.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_selectdefaultraster.grid(column=0, row=0, sticky='ew')
 
         self.label_placeholder = tk.Label(self.labelframe_selectdefaultraster, text='First select an Analysis Type')
         self.label_placeholder.grid(column=1, row=0, sticky='w')
@@ -172,7 +191,7 @@ class select_raster_standard_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_selectstandardraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_selectstandardraster.configure(text=' SELECT ONE OR MORE DEPTH GRID(S) ')
-        self.labelframe_selectstandardraster.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_selectstandardraster.grid(column=0, row=0, sticky='ew')
 
         self.listbox_raster = tk.Listbox(self.labelframe_selectstandardraster, selectmode=tk.EXTENDED, exportselection=0, width=40, height=3)
         for num, raster in enumerate(self.controller.rasters): self.listbox_raster.insert(num, raster) #add rasters into listbox
@@ -184,8 +203,12 @@ class select_raster_standard_frame(ttk.Frame):
         self.scrollbarRasters.config(command=self.listbox_raster.yview)
 
     def _set_selected_rasters_standard(self, *args):
-        self.controller.selected_rasters_standard = (self.listbox_raster.curselection())
-        print(self.controller.selected_rasters_standard)
+        selected_rasters = []
+        for i in self.listbox_raster.curselection():
+            selected_rasters.append(self.listbox_raster.get(i))
+        self.controller.selected_rasters_standard = (selected_rasters)
+        print(f"Selected Rasters Standard: {self.controller.selected_rasters_standard}")
+
 
 class select_raster_aal_frame(ttk.Frame):
     ''' minimum 3 depth grids, recommended 5 or more, allow at least 12 if cannot dynamically add more 
@@ -225,7 +248,7 @@ class select_raster_aal_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_selectaalraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_selectaalraster.configure(text=' SELECT AT LEAST THREE DEPTH GRID(S) ')
-        self.labelframe_selectaalraster.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_selectaalraster.grid(column=0, row=0, sticky='ew')
 
         self.label_help = tk.Label(self.labelframe_selectaalraster, text='For Return Period enter a number from 1 to 10,000')
         self.label_help.grid(column=0, row=0, sticky='w', columnspan=3)
@@ -295,7 +318,7 @@ class select_raster_all_pelv_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_selectdefaultraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_selectdefaultraster.configure(text=' SELECT ONE DEPTH GRID REPRESENTING 100 YEAR RETURN PERIOD ')
-        self.labelframe_selectdefaultraster.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_selectdefaultraster.grid(column=0, row=0, sticky='ew')
 
         self.listbox_raster = tk.Listbox(self.labelframe_selectdefaultraster, selectmode=tk.BROWSE, exportselection=0, width=40, height=3)
         for num, raster in enumerate(self.controller.rasters): self.listbox_raster.insert(num, raster) #add rasters into listbox
@@ -307,8 +330,9 @@ class select_raster_all_pelv_frame(ttk.Frame):
         self.scrollbarRasters.config(command=self.listbox_raster.yview)
 
     def _selected_raster_aal_pelv(self, *args):
-        self.controller.selected_raster_aal_pelv = (self.listbox_raster.curselection())
-        print(self.controller.selected_raster_aal_pelv)
+        selection_number = self.listbox_raster.curselection()
+        self.controller.selected_raster_aal_pelv.set(self.listbox_raster.get(selection_number))
+        print(f"Selected Raster AAL PELV: {self.controller.selected_raster_aal_pelv.get()}")
 
 class select_udf_frame(ttk.Frame):
     ''' choose csv file and display the path '''
@@ -320,7 +344,7 @@ class select_udf_frame(ttk.Frame):
     def _create_widgets(self):
         self.labelframe_selectudf = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_selectudf.configure(text=' SELECT USER DEFINED FACILITIES (UDF) FILE ')
-        self.labelframe_selectudf.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_selectudf.grid(column=0, row=0, sticky='ew')
 
         self.button_selectudf = tk.Button(self.labelframe_selectudf, text="Browse to UDF (.csv) File", command=lambda:[self._select_udf(), self._set_udf_fields_mapped()])
         self.button_selectudf.grid(column=0, row=0, sticky='w', padx=5, pady=5)
@@ -340,6 +364,7 @@ class select_udf_frame(ttk.Frame):
         self.controller.selected_udf_fields_mapped = mapped_fields_list.mapped_fields
         filename = self.controller.selected_udf.get() #TODO make the trace to update the treeview not so cludgy
         self.controller.selected_udf.set(filename) #to trigger trace again
+        print(f"Selected UDF: {self.controller.selected_udf.get()}")
 
 class review_field_mapping_frame(ttk.Frame):
     ''' treeview showing default field, required, mapped udf field colorized '''
@@ -353,10 +378,10 @@ class review_field_mapping_frame(ttk.Frame):
         ''' '''
         self.labelframe_mappedfields = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
         self.labelframe_mappedfields.configure(text=' REVIEW FIELD MAPPING ')
-        self.labelframe_mappedfields.grid(column=0, row=0, padx=5, pady=5, sticky='ew')
+        self.labelframe_mappedfields.grid(column=0, row=0, sticky='ew')
 
         #This is to get around the issue of tag_configure bg, fg not changing
-        #However, it messes with the rest of the GUI style
+        #However, it messes with the rest of the GUI style background colors if padding is used
         #https://stackoverflow.com/questions/61105126/tag-configure-is-not-working-while-using-theme-ttk-treeview
         self.style = ttk.Style(self)
         self.aktualTheme = self.style.theme_use()
@@ -368,8 +393,11 @@ class review_field_mapping_frame(ttk.Frame):
         self.treeview_mappedfields.heading(1, text='FIELD', anchor='w')
         self.treeview_mappedfields.heading(2, text='MAPPED UDF FIELD', anchor='w')
         self.treeview_mappedfields.heading(3, text='REQUIRED', anchor='w')
-        self.treeview_mappedfields.insert(parent='', index=1, iid=1, text='', values=('test', '', 'test'), tags=('UnMatched','bogus'))
-        self.treeview_mappedfields.tag_configure('UnMatched', background='red')
+        #self.treeview_mappedfields.insert(parent='', index=1, iid=1, text='', values=('test', '', 'test'), tags=('UnMatched','bogus')) #DEBUG
+
+        self.treeview_mappedfields.tag_configure('Matched', background='#99CC00')
+        self.treeview_mappedfields.tag_configure('UnMatchedNotRequired', background='#FFFF99')
+        self.treeview_mappedfields.tag_configure('UnMatchedRequired', background='red')
 
         self.scrollbar_mappedfields = tk.Scrollbar(self.labelframe_mappedfields)
         self.scrollbar_mappedfields.grid(column=1, row=1, sticky='ns')
@@ -397,11 +425,16 @@ class review_field_mapping_frame(ttk.Frame):
 
     def _load_mappedfields(self, list):
         ''' TODO '''
-        print('load mapped fields treeview')
+        self.controller.selected_udf_fields_required_mapped.set(True)
         counter = 0
         for row in list:
-            if row[1] == '' and row[2] == 'Required':
-                tag = 'UnMatched'
+            if row[1] != '':
+                tag = 'Matched'
+            elif row[1] == '' and row[2] == 'Required':
+                tag = 'UnMatchedRequired'
+                self.controller.selected_udf_fields_required_mapped.set(False)
+            elif row[1] == '' and row[2] == '':
+                tag = 'UnMatchedNotRequired'
             else:
                 tag = ''
             self.treeview_mappedfields.insert(parent='', index=counter, iid=counter, text='', values=(row[0], row[1], row[2]), tags=(tag,))
@@ -428,31 +461,114 @@ class bottom_buttons_frame(ttk.Frame):
     def _create_widgets(self):
         self.button_run = ttk.Button(self, text="Run") 
         self.button_run.configure(command=self._run)# TODO call appropriate analysis function based on analysis type and what Brian has setup
-        # TODO don't run if inputs are not ready, popup warning to user
-        self.button_run.grid(column=0, row=0, sticky='e', padx=5)
+        self.button_run.grid(column=0, row=0, sticky='e')
 
         self.button_quit = ttk.Button(self, text="Quit")
         self.button_quit.configure(command=self.controller.quit)
-        self.button_quit.grid(column=1, row=0, sticky='w', padx=5)
+        self.button_quit.grid(column=1, row=0, sticky='w')
 
     def _run(self):
         ''' Check all inputs and run appropriate function based on analysis type
             If missing an input, prompt user with issue and don't run otherwise run
         '''
-        print(self.controller.selected_flood_type.get())
-        print(self.controller.selected_analysis_type.get())
-        if self.controller.selected_analysis_type.get() == 'Standard':
-            print(self.controller.selected_rasters_standard)
-        if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
-            print(self.controller.selected_rasters_aal)
-        if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
-            print(self.controller.selected_raster_aal_pelv.get())
-        print(self.controller.selected_udf.get())
-        print('TODO check if all required fields are set')
+        print('--- Checking Prereqs... ---')
+        if self._check_selections() == True:
+            print('--- RUNNING ---')
+            flood_type = self.controller.selected_flood_type.get()
+            analysis_type = self.controller.selected_analysis_type.get()
+            udf = self.controller.selected_udf.get()
+            udf_fields_required_mapped = self.controller.selected_udf_fields_required_mapped.get()
 
-        #if analysis type, then get appropriate selected raster property
-        #if missing any required values, prompt user to fix
-        #if no missing, 
-            #put fields in required order
-            #run the analysis
+            print(f"Selected Flood Type: {flood_type}")
+            print(f"Selected Analysis Type: {analysis_type}")
+            print(f"Selected UDF: {udf}")
+            print(f"Selected UDF Field Check: {udf_fields_required_mapped}")
+
+            if self.controller.selected_analysis_type.get() == 'Standard':
+                rasters = self.controller.selected_rasters_standard
+                print(f"Selected Rasters Standard: {rasters}")
+                #TODO Run analysis
+            if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
+                rp_rasters = self.controller.selected_rasters_aal
+                print(f"Selected Rasters AAL: {rp_rasters}")
+                #TODO run analysis once function is implemented
+            if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
+                raster = self.controller.selected_raster_aal_pelv.get()
+                print(f"Selected Raster AAL PELV: {raster}")
+                #TODO run analysis once function is implemented
         
+    def _check_selections(self):
+        ''' Check if all selections are made, if not prompt user
+            Return true unless missing a selection 
+            TODO add user feedback that the tool is running
+        '''
+        good_to_go = True
+        not_good_to_go_message = ""
+
+        #Flood Type check
+        if self.controller.selected_flood_type.get() == '':
+            print("no flood type selected")
+            good_to_go = False
+            not_good_to_go_message = 'Please select a Flood Type.'
+
+        #Analysis Type check; Not actually needed, just for raster selection
+        if self.controller.selected_analysis_type.get() == '':
+            print("no analysis type selected")
+            good_to_go = False
+
+        #Rasters check
+        if self.controller.selected_analysis_type.get() == '':
+            print("no analysis type nor raster selected")
+            good_to_go = False
+            not_good_to_go_message = not_good_to_go_message + os.linesep + "Please select an Analysis Type."
+        if self.controller.selected_analysis_type.get() == 'Standard':
+            if len(self.controller.selected_rasters_standard) == 0:
+                print("no Standard raster(s) selected")
+                good_to_go = False
+                not_good_to_go_message = not_good_to_go_message + os.linesep + "Please select one or more depth grids."
+        if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
+            if len(self.controller.selected_rasters_aal) < 3 :
+                print("no AAL rasters selected")
+                good_to_go = False
+                not_good_to_go_message = not_good_to_go_message + os.linesep + "Please select three or more depth grids."
+        if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
+            if self.controller.selected_raster_aal_pelv.get() == '':
+                print("no AAL PELV raster selected")
+                good_to_go = False
+                not_good_to_go_message = not_good_to_go_message + os.linesep + "Please select a 100year depth grid."
+
+        #UDF check
+        if self.controller.selected_udf.get() == '':
+            print("no UDF selected")
+            good_to_go = False
+            not_good_to_go_message = not_good_to_go_message + os.linesep + "Please select a UDF csv file."
+
+        #Fields UnMatched Required check
+        #if len(self.controller.selected_udf_fields_mapped_ordered) == 0: #This should be moot if UDF selected
+        #    print("missing some or all required fields")
+        if not self.controller.selected_udf_fields_required_mapped.get(): #boolean if a required field wasn't mapped
+            good_to_go = False
+            not_good_to_go_message = not_good_to_go_message + os.linesep + "Please modify your UDF .csv columns to match the required default fields."
+
+        if good_to_go == True:
+            print('All selections made. Good To Run.')
+        else:
+            print('All selections not made. NOT Good To Run.')
+            print(not_good_to_go_message)
+            self._popupmsg(not_good_to_go_message)
+
+        return good_to_go
+
+    def _popup(self, message):
+        ''' Threaded popup for processing 
+        TODO put into use or delete and remove ctypes and threaded imports '''
+        popup_window = ctypes.windll.user32.MessageBoxW
+        Thread(target = lambda :popup_window(None, f'{message}', 0)).start()
+
+    def _popupmsg(self, msg, *args):
+        """ Creates a tkinter popup message window
+
+            Keyword Arguments:
+                msg: str -- The message you want to display
+        """    
+        tk.messagebox.showinfo(message=msg)

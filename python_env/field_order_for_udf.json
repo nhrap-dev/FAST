@@ -1,0 +1,19 @@
+{
+  "UserDefinedFltyId": 1,
+  "OCC": 2,
+  "Cost": 3,
+  "Area": 4,
+  "NumStories": 5,
+  "FoundationType": 6,
+  "FirstFloorHt": 7,
+  "ContentCost": 8,
+  "BDDF_ID": 9,
+  "CDDF_ID": 10,
+  "IDDF_ID": 11,
+  "InvCost": 12,
+  "SOID": 13,
+  "Latitude": 14,
+  "Longitude": 15,
+  "flC":  16,
+  "RasterList": 17
+}
