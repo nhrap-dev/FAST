@@ -78,8 +78,8 @@ def runHazus():
      runUDF = UDF()
      haz = runUDF.local(root.filename, entries)# Run the Hazus script with input from user using the GUI
      #haz = hazus.local(root.filename, entries)# Run the Hazus script with input from user using the GUI
-     print('Run Hazus',haz,entries)
-     
+    # print('Run Hazus', haz, entries)
+
      if haz[0]:
           popupmsg(haz[1])
      else:
@@ -96,7 +96,6 @@ def browse_button():
          with open(root.filename, "r+") as f:
               reader = csv.reader(f)
               root.csvFields = next(reader)
-         print(root.filename,root.csvFields)
 
 def makeform(root, fields):# Assemble and format the fields to map from the list of fields
     entries = {}
