@@ -202,7 +202,7 @@ class select_raster_standard_frame(ttk.Frame):
         self.labelframe_selectstandardraster.configure(text=' SELECT ONE OR MORE DEPTH GRID(S) ')
         self.labelframe_selectstandardraster.grid(column=0, row=0, sticky='ew')
 
-        self.listbox_raster = tk.Listbox(self.labelframe_selectstandardraster, selectmode=tk.EXTENDED, exportselection=0, width=40, height=3)
+        self.listbox_raster = tk.Listbox(self.labelframe_selectstandardraster, selectmode=tk.EXTENDED, exportselection=0, width=40, height=6)
         for num, raster in enumerate(self.controller.rasters): self.listbox_raster.insert(num, raster) #add rasters into listbox
         self.listbox_raster.bind("<<ListboxSelect>>", self._set_selected_rasters_standard)
         self.listbox_raster.grid(column=0, row=1, padx=5, pady=5)
@@ -256,22 +256,25 @@ class select_raster_aal_frame(ttk.Frame):
 
     def _create_widgets(self):
         self.labelframe_selectaalraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
-        self.labelframe_selectaalraster.configure(text=' SELECT AT LEAST THREE DEPTH GRID(S) ')
+        self.labelframe_selectaalraster.configure(text=' ENTER RETURN PERIODS AND SELECT CORRESPONDING RASTERS ')
         self.labelframe_selectaalraster.grid(column=0, row=0, sticky='ew')
 
-        self.label_help = tk.Label(self.labelframe_selectaalraster, text='For Return Period enter a number from 1 to 10,000')
+        label_text_a = 'For Return Period enter a number from 1 to 10,000.\nEnter and select at least three return period:raster pairings.'
+        self.label_help = tk.Label(self.labelframe_selectaalraster, text=label_text_a, justify=tk.LEFT)
         self.label_help.grid(column=0, row=0, sticky='w', columnspan=3)
 
         #Create a canvas to hold a frame containing all of the label, entry, combobox widgets in a grid
-        #TODO set scrolling area
-        v = ttk.Scrollbar(self.labelframe_selectaalraster, orient=tk.VERTICAL)
-        self.canvas = tk.Canvas(self.labelframe_selectaalraster, width=600, height=100, yscrollcommand=v.set) #create label, entry, combobox grid; scrollable
-        v['command'] = self.canvas.yview
-        self.canvas.grid(column=0, row=1, sticky='nsew')
-        v.grid(column=4, row=1, sticky=("ns"))
+        self.canvas = tk.Canvas(self.labelframe_selectaalraster, width=600, height=100) #create label, entry, combobox grid
+        self.canvas.grid(column=0, row=1)
+        self.scroll_y = tk.Scrollbar(self.labelframe_selectaalraster, orient="vertical", command=self.canvas.yview)
+        self.scroll_y.grid(row=1, column=1, sticky="ns")
+        self.canvas.configure(yscrollcommand=self.scroll_y.set)
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
         self.canvas_frame = ttk.Frame(self.canvas, padding=5) #frame to contain widgets and placed into canvas
-        self.frame_canvas = self.canvas.create_window((0,0), window=self.canvas_frame, anchor='nw')
-  
+
+        self.canvas.create_window((4, 4), window=self.canvas_frame, anchor="nw")
+        self.canvas_frame.bind("<Configure>", self.onFrameConfigure)
 
         vcmd = (self.register(self._validate_returnperiod_entry), '%P') #to limit user input to integers
 
@@ -301,6 +304,10 @@ class select_raster_aal_frame(ttk.Frame):
             self.comboboxes[name] = combo
             i += 1
 
+    def onFrameConfigure(self, event):
+        '''Reset the scroll region to encompass the inner frame'''
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
     def _print_rp_names(self):
         ''' Iterate over the return period names to get the label, entry and combobox values 
             TODO use this to create a dictionary to set self.controller.selected_rasters_aal
@@ -329,12 +336,12 @@ class select_raster_all_pelv_frame(ttk.Frame):
         self.labelframe_selectdefaultraster.configure(text=' SELECT ONE DEPTH GRID REPRESENTING THE 100 YEAR RETURN PERIOD ')
         self.labelframe_selectdefaultraster.grid(column=0, row=0, sticky='ew')
 
-        self.listbox_raster = tk.Listbox(self.labelframe_selectdefaultraster, selectmode=tk.BROWSE, exportselection=0, width=40, height=3)
+        self.listbox_raster = tk.Listbox(self.labelframe_selectdefaultraster, selectmode=tk.BROWSE, exportselection=0, width=40, height=6)
         for num, raster in enumerate(self.controller.rasters): self.listbox_raster.insert(num, raster) #add rasters into listbox
         self.listbox_raster.bind("<<ListboxSelect>>", self._selected_raster_aal_pelv)
-        self.listbox_raster.grid(column=0, row=1, padx=5, pady=5)
+        self.listbox_raster.grid(column=0, row=1, padx=5, pady=5, sticky='nsew')
         self.scrollbarRasters = tk.Scrollbar(self.labelframe_selectdefaultraster)
-        self.scrollbarRasters.grid(column=1, row=1, sticky='nsew')
+        self.scrollbarRasters.grid(column=1, row=1, sticky='ns')
         self.listbox_raster.config(yscrollcommand=self.scrollbarRasters.set)
         self.scrollbarRasters.config(command=self.listbox_raster.yview)
 
