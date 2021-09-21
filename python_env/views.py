@@ -13,7 +13,7 @@ from tkinter import messagebox as messagebox
 from threading import Thread
 import ctypes
 import udf_field_mapping
-#from hazpy.flood import UDF
+from hazpy.flood import UDF
 
 class GUI(tk.Frame):
     """ Create the controller frame """
@@ -32,11 +32,11 @@ class GUI(tk.Frame):
         self.selected_raster_aal_pelv = tk.StringVar() # path to single 100yr raster in C:\_repositories\Development\FAST\rasters
 
         self.selected_udf = tk.StringVar() # path to csv file: C:\_repositories\Development\FAST\UDF\ND_Minot_UDF.csv
-        self.selected_udf_fields_mapped = [] # List of display name, udf field and required, updates when udf csv file selected
-        self.selected_udf_fields_mapped_ordered = []
-        self.selected_udf_fields_required_mapped = tk.BooleanVar()
+        self.selected_udf_fields_mapped = [] # List of tuples; of display name, udf field and required, updates when udf csv file selected
+        self.selected_udf_fields_mapped_ordered = [] # ordered list of strings; of the mapped fields
+        self.selected_udf_fields_required_mapped = tk.BooleanVar() #true if all required mapped fields are present
 
-        self.rasters = ['Raster A','raster b','rASTER c','RASTER d','Raster E','So many rasters','Should be depth grid'] #TODO get rasters from folder
+        self.rasters = self._load_rasters() #list of rasters from folder
 
         self._create_widgets()
 
@@ -59,6 +59,15 @@ class GUI(tk.Frame):
         self.select_udf_frame = select_udf_frame(self).grid(column=0, row=3, sticky='new', padx=5, pady=5)
         self.review_field_mapping_frame = review_field_mapping_frame(self).grid(column=0, row=4, sticky='new', padx=5, pady=5)
         self.bottom_buttons_frame = bottom_buttons_frame(self).grid(column=0, row=5, sticky='new', padx=5, pady=5)
+
+    def _load_rasters(self):
+        ''' Search rasters folder for all .tif files and make a listprint('Rasters selection ',rasters) '''
+        dir = os.getcwd()
+        if (dir.find('Python_env') != -1):
+             dir = os.path.dirname(dir)
+        cwd = os.path.join(dir,'rasters') # Default raster directory
+        rasters = [f for f in listdir(cwd) if isfile(join(cwd, f)) and f.endswith(('.tif','.tiff','.nc'))] 
+        return rasters
 
 class select_flood_type_frame(ttk.Frame):
     ''' Riverine, Coastal A, Coastal V '''
@@ -317,7 +326,7 @@ class select_raster_all_pelv_frame(ttk.Frame):
 
     def _create_widgets(self):
         self.labelframe_selectdefaultraster = tk.LabelFrame(self, font=("Tahoma", "12"), labelanchor='nw', borderwidth=2)
-        self.labelframe_selectdefaultraster.configure(text=' SELECT ONE DEPTH GRID REPRESENTING 100 YEAR RETURN PERIOD ')
+        self.labelframe_selectdefaultraster.configure(text=' SELECT ONE DEPTH GRID REPRESENTING THE 100 YEAR RETURN PERIOD ')
         self.labelframe_selectdefaultraster.grid(column=0, row=0, sticky='ew')
 
         self.listbox_raster = tk.Listbox(self.labelframe_selectdefaultraster, selectmode=tk.BROWSE, exportselection=0, width=40, height=3)
@@ -360,11 +369,15 @@ class select_udf_frame(ttk.Frame):
         self.controller.selected_udf.set(filename)
 
     def _set_udf_fields_mapped(self):
-        mapped_fields_list = udf_field_mapping.map_udf_fields(self.controller.selected_udf.get())
-        self.controller.selected_udf_fields_mapped = mapped_fields_list.mapped_fields
-        filename = self.controller.selected_udf.get() #TODO make the trace to update the treeview not so cludgy
-        self.controller.selected_udf.set(filename) #to trigger trace again
-        print(f"Selected UDF: {self.controller.selected_udf.get()}")
+        ''' Map the user selected fields using exernal module '''
+        if self.controller.selected_udf.get() != '': #avoid error if user cancels file selection
+            mapped_fields_list = udf_field_mapping.map_udf_fields(self.controller.selected_udf.get())
+            self.controller.selected_udf_fields_mapped = mapped_fields_list.mapped_fields #create list of tuples for iput into treeview widget
+            self.controller.selected_udf_fields_mapped_ordered = mapped_fields_list.mapped_fields_ordered #create list of ordered fields for input to udf
+
+            filename = self.controller.selected_udf.get() #TODO make the trace to update the treeview not so cludgy
+            self.controller.selected_udf.set(filename) #to trigger trace, again
+            print(f"Selected UDF: {self.controller.selected_udf.get()}")
 
 class review_field_mapping_frame(ttk.Frame):
     ''' treeview showing default field, required, mapped udf field colorized '''
@@ -419,12 +432,12 @@ class review_field_mapping_frame(ttk.Frame):
         self.label_info.grid(column=0, row=3, sticky='w')
 
     def _clear_mappedfields(self, *args):
-        ''' TODO '''
+        ''' Clear out the treeview widget entries '''
         print('clear mapped fields treeview')
         self.treeview_mappedfields.delete(*self.treeview_mappedfields.get_children())
 
     def _load_mappedfields(self, list):
-        ''' TODO '''
+        ''' Load mapped fields into treeview widget '''
         self.controller.selected_udf_fields_required_mapped.set(True)
         counter = 0
         for row in list:
@@ -471,23 +484,39 @@ class bottom_buttons_frame(ttk.Frame):
         ''' Check all inputs and run appropriate function based on analysis type
             If missing an input, prompt user with issue and don't run otherwise run
         '''
-        print('--- Checking Prereqs... ---')
+        print('--- CHECKING INPUT... ---')
         if self._check_selections() == True:
             print('--- RUNNING ---')
             flood_type = self.controller.selected_flood_type.get()
+            flood_type_converted = self.controller.selected_flood_type_converted.get()
             analysis_type = self.controller.selected_analysis_type.get()
             udf = self.controller.selected_udf.get()
-            udf_fields_required_mapped = self.controller.selected_udf_fields_required_mapped.get()
+            arg_fields_list = self.controller.selected_udf_fields_mapped_ordered.copy() #avoid list mutation
+            udf_args = []
 
-            print(f"Selected Flood Type: {flood_type}")
+            print(f"Selected Flood Type: {flood_type} Converted: {flood_type_converted}")
             print(f"Selected Analysis Type: {analysis_type}")
             print(f"Selected UDF: {udf}")
-            print(f"Selected UDF Field Check: {udf_fields_required_mapped}")
+            print(f"Selected UDF Mapped and Ordered Fields: {arg_fields_list}")
 
             if self.controller.selected_analysis_type.get() == 'Standard':
                 rasters = self.controller.selected_rasters_standard
-                print(f"Selected Rasters Standard: {rasters}")
-                #TODO Run analysis
+                udf_args = arg_fields_list
+                udf_args.append(flood_type_converted)
+                udf_args.append(rasters)
+                print(f"Standard Analysis UDF Arguments: {udf_args}")
+
+                ''' Example UDF Input: 'udf filename', [,,,,[,]]
+                    Root filename: C:/_repositories/Development/FAST/UDF/HI_Honolulu_UDF.csv
+                    entries: ['FltyId', 'Occ', 'Cost', 'Area', 'NumStories', 'FoundationType', 'FirstFloorHt', 'ContentCost', 'BldgDamageFnID', 'CDDF_ID', '', '', '', 'Latitude', 'Longitude', 'V', ['with2010_TWL_TC_Tr_010_wgs84.tif', 'with2010_TWL_TC_Tr_025_wgs84.tif']]
+                '''
+                runUDF = UDF()
+                haz = runUDF.local(udf, udf_args) # Run the Hazus script with input from user using the GUI
+                print('Run Hazus > Flood > UDF', haz, udf_args)
+                if haz[0]:
+                    self._popupmsg(haz[1])
+                else:
+                    self._popupmsg('Processing Failed. See Console or Log for details.')
             if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
                 rp_rasters = self.controller.selected_rasters_aal
                 print(f"Selected Rasters AAL: {rp_rasters}")
@@ -501,6 +530,7 @@ class bottom_buttons_frame(ttk.Frame):
         ''' Check if all selections are made, if not prompt user
             Return true unless missing a selection 
             TODO add user feedback that the tool is running
+            See fielddisplay_order_for_udf.json for UDF arg field order
         '''
         good_to_go = True
         not_good_to_go_message = ""

@@ -19,7 +19,11 @@ class map_udf_fields():
         self.fields_required_path = 'fields_required.json' # should be in python_env
         self.fields_required = self._get_json_data(self.fields_required_path) # dict
 
-        self.mapped_fields = self._map_udf_fields() # dict #May not be needed?
+        self.field_order_path = 'fielddisplay_order_for_udf.json' # should be in python_env
+        self.field_order = self._get_json_data(self.field_order_path) # dict
+
+        self.mapped_fields = self._map_udf_fields() # list of tuples #May not be needed?
+        self.mapped_fields_ordered = self._order_fields(self.mapped_fields, self.field_order) #list
 
 
     def _get_file_fields(self):
@@ -41,7 +45,7 @@ class map_udf_fields():
             the mapped udf field and if the field is required.
 
         Returns:
-            tuple
+            list of tuples
             (Field_Name, UDF_Field, Required)
             i.e. (Specific Occupancy ID, 'SOID', 'Required')
         '''
@@ -57,35 +61,17 @@ class map_udf_fields():
             for field_id in self.fields_required.items():
                 if field_id[0] == field[0] and field_id[1] == 1:
                     required = 'Required'
-
             mapped_fields.append((field_name, matched_file_field, required))
-
         return mapped_fields
 
-
-
-
-        ''' TODO 
-        UDF input needs to be: it looks like a positional entry on line 87 in UDF.py
-        It appears fields need to be passed into UDF in a specific order:
-        UserDefinedFltyId,
-        OccupancyClass,
-        Cost,
-        Area,
-        NumStories,
-        FoundationType,
-        FirstFloorHt,
-        ContentCost,
-        BldgDamageFnID,
-        ContDamageFnId,
-        InvDamageFnId,
-        InvCost,
-        SOI,
-        latitude,
-        longitude,
-        flC
-        '''
-        
+    def _order_fields(self, tuplelist, field_order):
+        ''' sort a list of tuples by a dictionary 
+            Return the UDF field name as a list'''
+        sorted_fields = sorted(tuplelist, key=lambda x:field_order.get(x[0]))
+        new_list = []
+        for x in sorted_fields:
+            new_list.append(x[1])
+        return new_list      
 
 
 if __name__ == "__main__":
@@ -93,9 +79,21 @@ if __name__ == "__main__":
     x = map_udf_fields(file_path)
   
     if 1 > 0:
+        print('file fields:')
         print(x.file_fields)
         print()
+        print('mapped fields:')
         for y in x.mapped_fields:
+            print(y)
+        print()
+        #breakpoint()
+        print('field_order:')
+        for y in x.field_order:
+            print(y)
+        print()
+        print('ordered fields')
+        z = x._order_fields(x.mapped_fields, x.field_order)
+        for y in z:
             print(y)
 
     if 1 < 0:
@@ -111,4 +109,7 @@ if __name__ == "__main__":
         print()
         print(x.field_lookup['UserDefinedFltyId'])
         print()
-
+        print('mapped fields')
+        print(x.mapped_fields)
+        print()
+        print(x.mapped_fields_ordered)
