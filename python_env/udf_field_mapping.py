@@ -4,7 +4,15 @@ import csv
 import json
 
 class map_udf_fields():
-    ''' Create a dictionary of mapped UDF fields to Default Fields '''
+    ''' Create a dictionary of mapped UDF fields to Default Fields in support of FAST
+
+        Keyword Arguments:
+            file_path: str -- A path to a csv file
+        Returns:
+            list_of_column_names: list -- A list of column names.
+
+        Note: The csv file should be formatted for FAST
+    '''
     def __init__(self, file_path):
         ''' The file path is the csv file '''
         self.file_path = file_path #UDF csv file
@@ -27,7 +35,15 @@ class map_udf_fields():
 
 
     def _get_file_fields(self):
-        ''' TODO '''
+        """ Create a list of CSV columns headers of the defined self.file_path
+
+        Keyword Arguments:
+
+        Returns:
+            list_of_column_names: list -- A list of column names.
+
+        Note: 
+        """
         with open(self.file_path, 'r') as f:
             csv_reader = csv.DictReader(f)
             dict_from_csv = dict(list(csv_reader)[0])
@@ -35,7 +51,15 @@ class map_udf_fields():
         return list_of_column_names
     
     def _get_json_data(self, file):
-        ''' Load a json file '''
+        """ Create a dictionary from a json file
+
+        Keyword Arguments:
+            file: str -- A filepath
+        Returns:
+            data: dict -- The json as dict.
+
+        Note: 
+        """
         with open(os.path.join(Path(__file__).parent, file)) as json_file:
             data = json.load(json_file)
         return data
@@ -45,8 +69,10 @@ class map_udf_fields():
             the mapped udf field and if the field is required.
 
         Returns:
-            list of tuples
-            (Field_Name, UDF_Field, Required)
+            mapped_fields: list -- A list of tuples
+
+        Note:
+            Tuple format: (Field_Name, UDF_Field, Required)
             i.e. (Specific Occupancy ID, 'SOID', 'Required')
         '''
         mapped_fields = []
