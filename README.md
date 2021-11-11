@@ -4,11 +4,11 @@ The Hazus Flood Assessment Structure Tool (FAST) calculates building-level flood
 
 Building data must be formatted as a .csv file according to the specifications outlined here: https://github.com/nhrap-hazus/FAST/blob/master/Help/FASTBuildingData.pdf Flood depth data must be formatted as a .tiff raster. Sample building data for Honolulu, HI are included in the "UDF" folder.
 
-FAST is developed using the Hazus Python Package, HazPy. HazPy tools automatically check for updates each time they are opened. Hazus Python Package documentation is found here: https://github.com/nhrap-hazus/hazus. The Hazus Team would like to thank the Oregon Department of Geology and Mineral Industries for developing an early version of this tool: https://www.oregongeology.org/pubs/ofr/O-18-04/O-18-04_user_guide.pdf
+FAST is developed using the Hazus Python Package. This tool automatically checks for updates each time its opened. The Hazus Team would like to thank the Oregon Department of Geology and Mineral Industries for developing an early version of this tool: https://www.oregongeology.org/pubs/ofr/O-18-04/O-18-04_user_guide.pdf
 
 ## Requirements
 
-The Flood Assessment Structure Tool requires Hazus, ArcGIS Desktop, and conda to be installed on your computer. If you haven't already, follow this [README](https://github.com/nhrap-dev/Environment-Setup/tree/update-README) to setup your machine with miniforge and conda before trying to run FAST
+The Flood Assessment Structure Tool requires conda be installed on your computer. If you haven't already, follow this [README](https://github.com/nhrap-dev/Environment-Setup/tree/update-README) to setup your machine with miniforge and conda before trying to run FAST
  
 ## Documentation
 
@@ -18,7 +18,7 @@ Please see the Help folder for building data guidance, FAST case study informati
 
 Check out the [Troubleshooting](#troubleshooting) section below for help operating FAST.
 
-Issues can be reported through the repository on Github: https://github.com/nhrap-dev/FAST/issues
+Issues can be reported through the repository on Github: https://github.com/nhrap-hazus/FAST/issues
 
 For questions contact the Hazus Team at fema-hazus-support@fema.dhs.gov.
 
