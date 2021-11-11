@@ -8,19 +8,7 @@ FAST is developed using the Hazus Python Package, HazPy. HazPy tools automatical
 
 ## Requirements
 
-The Flood Assessment Structure Tool requires Anaconda to be installed on your computer. Anaconda is a free software that automatically manages all Python packages required to run Hazus open source tools - including the Hazus Python package: https://fema-ftp-snapshot.s3.amazonaws.com/Hazus/hazpy/build/html/index.html **Please note that FAST is not compatible with the Export Tool at this time. If you have the Export Tool installed on your machine, please remove it before downloading and installing FAST**
-
-1. Go to https://github.com/conda-forge/miniforge/#download
-
-2. Download Minforge3 for your operating system
-
-3. Complete the installation. During installation, make sure the following options are checked:
-
-   - [x] Add conda to my PATH environment variable
-   - [x] Register conda as my default Python
-   - [x] Install conda for local user, rather than all users
-   
-FAST will automatically check for HazPy updates each time it is opened. If you experience errors during this process, please try uninstalling Anaconda and reinstalling the latest version.
+The Flood Assessment Structure Tool requires Hazus, ArcGIS Desktop, and conda to be installed on your computer. If you haven't already, follow this [README](https://github.com/nhrap-dev/Environment-Setup/tree/update-README) to setup your machine with miniforge and conda before trying to run FAST
  
 ## Documentation
 
@@ -69,23 +57,9 @@ To customize the damage functions used by FAST to calculate losses, review these
 
 Please reach out to the Hazus Team any time for help troubleshooting tool issues at fema-hazus-support@fema.dhs.gov.
 
-Hazus open source tools use a centrally managed Python environment added to your machine upon installation. If you downloaded and installed FAST prior to 2021, you may need to delete your old Python environment - called "hazus_env". If you're having issues opening FAST or if the version number in your "src/__init__.py" file reads '0.0.5' or older, try one of the two options below to delete your old Python environment:
+Install and Uninstall directions can be found [here](https://github.com/nhrap-dev/Environment-Setup/tree/update-README).
+
+**For FAST versions 0.0.7 and below**
+These versions use Anaconda for the Python environment. It is recommended to update to the latest tool version by uninstalling Anaconda and installing Miniforge and Conda and then downloading the latest version of the tool. Refer to the instructions [here](https://github.com/nhrap-dev/Environment-Setup/tree/update-README) to perform the uninstall.
 
 
-**Using Anaconda:**
-1. Delete FAST from your machine.
-2. Open Anaconda.
-3. Select the 'hazus_env'.
-4. Click the 'Remove' button.
-5. A popup will appear asking you to confirm. Click the 'Remove' button. This may take a few minutes.
-6. Download the latest FAST and it will create the hazus_env and install hazpy.
-![Anaconda Remove Environment](Images/AnacondaRemoveEnv.jpg "Anaconda Remove hazus_env")
-
-**Using Command Line:**
-1. Delete FAST from your machine.
-2. Open a command line prompt
-3. Enter the following without qoutes 'conda info --envs' to see your environments. 'hazus_env' should be listed.
-4. Enter the following without quotes 'conda env remove --name hazus_env' to remove the environment. This may take a few minutes.
-5. Enter the following without qoutes 'conda info --envs' to see your environments again and hazus_env should not be listed.
-6. Download the latest FAST and it will create the hazus_env and install hazpy.
-![Command Line Remove Environment](Images/CommandLineRemoveEnv.jpg "Command Line Remove hazus_env")
