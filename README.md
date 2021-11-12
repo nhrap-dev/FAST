@@ -14,14 +14,6 @@ The Flood Assessment Structure Tool requires conda be installed on your computer
 
 Please see the Help folder for building data guidance, FAST case study information (coming soon), and a brief video demonstration of FAST: https://github.com/nhrap-hazus/FAST/tree/master/Help
 
-## Contact
-
-Check out the [Troubleshooting](#troubleshooting) section below for help operating FAST.
-
-Issues can be reported through the repository on Github: https://github.com/nhrap-hazus/FAST/issues
-
-For questions contact the Hazus Team at fema-hazus-support@fema.dhs.gov.
-
 ## To Use
 
 Follow the steps below to run FAST. To ensure .py files run when double-clicked, right-click the .py file and go to Properties. Under the "General" tab next to "Opens With", make sure "python.exe" is selected. If not, click "Change" and select "python.exe" from your Python installation directory.
@@ -63,3 +55,10 @@ Install and Uninstall directions can be found [here](https://github.com/nhrap-de
 These versions use Anaconda for the Python environment. It is recommended to update to the latest tool version by uninstalling Anaconda and installing Miniforge and Conda and then downloading the latest version of the tool. Refer to the instructions [here](https://github.com/nhrap-dev/Environment-Setup/tree/update-README) to perform the uninstall.
 
 
+## Contact
+
+Check out the [Troubleshooting](#troubleshooting) section below for help operating FAST.
+
+Issues can be reported through the repository on Github: https://github.com/nhrap-hazus/FAST/issues
+
+For questions contact the Hazus Team at fema-hazus-support@fema.dhs.gov.
