@@ -12,7 +12,7 @@ from tkinter import filedialog
 from tkinter import messagebox as messagebox
 from threading import Thread
 import ctypes
-import udf_field_mapping
+from .udf_field_mapping import map_udf_fields
 from hazpy.flood import UDF
 
 class GUI(tk.Frame):
@@ -93,6 +93,7 @@ class select_flood_type_frame(ttk.Frame):
     def _set_floodtype(self, *args):
         ''' '''
         self.controller.selected_flood_type.set(self.combobox_floodtype.get())
+        # TODO: Get Flood Hazard Type from here - BC
         print(f"Selection Flood Type: {self.controller.selected_flood_type.get()}")
 
     def _set_selected_flood_type_converted(self, *args):
@@ -378,7 +379,8 @@ class select_udf_frame(ttk.Frame):
     def _set_udf_fields_mapped(self):
         ''' Map the user selected fields using exernal module '''
         if self.controller.selected_udf.get() != '': #avoid error if user cancels file selection
-            mapped_fields_list = udf_field_mapping.map_udf_fields(self.controller.selected_udf.get())
+            # TODO: Remove udf_field_mapping reference - BC
+            mapped_fields_list = map_udf_fields(self.controller.selected_udf.get())
             self.controller.selected_udf_fields_mapped = mapped_fields_list.mapped_fields #create list of tuples for iput into treeview widget
             self.controller.selected_udf_fields_mapped_ordered = mapped_fields_list.mapped_fields_ordered #create list of ordered fields for input to udf
 
@@ -440,7 +442,7 @@ class review_field_mapping_frame(ttk.Frame):
 
     def _clear_mappedfields(self, *args):
         ''' Clear out the treeview widget entries '''
-        print('clear mapped fields treeview')
+        #print('clear mapped fields treeview')
         self.treeview_mappedfields.delete(*self.treeview_mappedfields.get_children())
 
     def _load_mappedfields(self, list):
@@ -458,12 +460,12 @@ class review_field_mapping_frame(ttk.Frame):
             else:
                 tag = ''
             self.treeview_mappedfields.insert(parent='', index=counter, iid=counter, text='', values=(row[0], row[1], row[2]), tags=(tag,))
-            print(row)
+            #print(row)
             counter +=1
 
     def _trace_when_file_is_selected(self, *args):
         ''' TODO '''
-        print('mapped fields trace')
+        #print('mapped fields trace')
         self._clear_mappedfields()
         self._load_mappedfields(self.controller.selected_udf_fields_mapped)
 
@@ -500,26 +502,25 @@ class bottom_buttons_frame(ttk.Frame):
             udf = self.controller.selected_udf.get()
             arg_fields_list = self.controller.selected_udf_fields_mapped_ordered.copy() #avoid list mutation
             udf_args = []
-
             print(f"Selected Flood Type: {flood_type} Converted: {flood_type_converted}")
             print(f"Selected Analysis Type: {analysis_type}")
             print(f"Selected UDF: {udf}")
-            print(f"Selected UDF Mapped and Ordered Fields: {arg_fields_list}")
+            #print(f"Selected UDF Mapped and Ordered Fields: {arg_fields_list}")
 
             if self.controller.selected_analysis_type.get() == 'Standard':
                 rasters = self.controller.selected_rasters_standard
                 udf_args = arg_fields_list
                 udf_args.append(flood_type_converted)
                 udf_args.append(rasters)
-                print(f"Standard Analysis UDF Arguments: {udf_args}")
+                #print(f"Standard Analysis UDF Arguments: {udf_args}")
 
                 ''' Example UDF Input: 'udf filename', [,,,,[,]]
                     Root filename: C:/_repositories/Development/FAST/UDF/HI_Honolulu_UDF.csv
                     entries: ['FltyId', 'Occ', 'Cost', 'Area', 'NumStories', 'FoundationType', 'FirstFloorHt', 'ContentCost', 'BldgDamageFnID', 'CDDF_ID', '', '', '', 'Latitude', 'Longitude', 'V', ['with2010_TWL_TC_Tr_010_wgs84.tif', 'with2010_TWL_TC_Tr_025_wgs84.tif']]
                 '''
                 runUDF = UDF()
-                haz = runUDF.local(udf, udf_args) # Run the Hazus script with input from user using the GUI
-                print('Run Hazus > Flood > UDF', haz, udf_args)
+                haz = runUDF.local(udf, udf_args, flood_type) # Run the Hazus script with input from user using the GUI
+                #print('Run Hazus > Flood > UDF', haz, udf_args)
                 if haz[0]:
                     self._popupmsg(haz[1])
                 else:
