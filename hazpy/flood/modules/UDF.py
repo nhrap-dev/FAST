@@ -32,6 +32,7 @@ import numpy as np
 import os
 import pandas as pd
 import pyodbc as py
+import requests
 import subprocess
 import sys
 import time
@@ -1069,7 +1070,6 @@ class UDF():
                     tracts = get_tracts(tract_list)
                     # Get PELV Curves
                     # TODO: Either install openpyxl with conda (add to environment.yaml) or convert to CSVs
-                    print(f'\nThis is the flood_type: {flood_type}\n')
                     pelv_curves = read_pelv_curves(flood_type)
                     pelv_curves_50 = pelv_curves[['tract', 50]]
                     # Join tables
@@ -1099,13 +1099,16 @@ class UDF():
                     # TODO: Check if file(s) exists
                     # TODO: Handle points outside of tract boundary (ie: in ocean)
                     file_name = UDFRoot.split('.')[0] + "_" + y.split('.')[0]
+                    # Assign depths for each return period per PELV_50
+                    depth_data = get_depths(pelv_curves_50_join)
                     # Create GeoJSON file
-                    to_geojson(pelv_curves_50_join, os.path.join(Resultsfgdb, 'output', file_name + ".geojson"))
+                    to_geojson(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".geojson"))
                     # Create Shapefile- currently disabled
-                    to_shapefile(pelv_curves_50_join, os.path.join(Resultsfgdb, 'output', file_name + ".shp"))
+                    to_shapefile(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".shp"))
                     # Create CSV file (with PELV curve field)
-                    to_csv(pelv_curves_50_join, file_out, line_terminator='\n', drop_geom=True)
+                    to_csv(depth_data, file_out, line_terminator='\n', drop_geom=True)
                     file_out.close()
+# End PELV Curves
 ##################################################################################################
                     #UKS - Sorting and logging
                     logger.info(
@@ -1192,6 +1195,8 @@ def getConnectionString(stringName):
     except Exception as e:
         print(e)
 
+# User must have HAZUS installed
+# TODO: Create a function to check if HAZUS installed
 def get_tracts(tract_list):
     sql = f"SELECT Tract, Shape.STAsText() AS tract_geometry, Shape.STSrid as crs FROM [syHazus].[dbo].[syTract] WHERE Tract IN {tract_list}"
     try:
@@ -1286,16 +1291,82 @@ def to_shapefile(df, path):
 
 
 # TODO: Adjust SQL query to get tracts for specific state (reference input tract # --> 1st 2 numbers)
-
+# TODO: Adjust variables & input csv data (need just 1 row) (or grab raw CSV) - BC
 # Get tract (from ESRI REST API)
-def get_tract_api(x, y):
-    # https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=&text=&objectIds=&time=&geometry=-157.862017%2C21.312285&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson
-    url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
-    url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
-    url = f'{url_base}{x}%2C{y}{url_end}'
+# def get_tract_api(points, x, y):
+#     pass
+#     # https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=&text=&objectIds=&time=&geometry=-157.862017%2C21.312285&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson
+#     url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
+#     url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
+#     # Get first point (for initial reference)
+#     # TODO: Only get 1 record from CSV (for reference)
+#     for point in points:
+#         x, y = point[0], point[1]
+#         url = f'{url_base}{x}%2C{y}{url_end}'
+#         #url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+#         initial_response = requests.get(url)
+#         data = initial_response.json().get('features')[0].get('properties')
+#         state = data.get('STATE')
+#         # county = data.get('COUNTY')
+#         # tract = data.get('TRACT')
+#        # new_tract = state + county + tract
+#         #tracts.append(new_tract)
+#     tracts_url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=STATE%3D{state}&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=4326&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+#     tracts_response = requests.get(tracts_url)
+#     tracts = tracts_response.json().get('features')
+#     tracts = gpd.GeoDataFrame.from_features(tracts)
+#     # TODO: Remove print statement - BC
+#     print(tracts.head(5))
+#     return tracts
 
+def intersect_tracts(tracts, points):
+    pass
+
+def check_for_hazus():
+    pass
+    # windows cmd (subprocess) --> osql -L 
+        # then, parse list
+    
+    # import subprocess
+    # proc = subprocess.Popen('osql -L', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    # out, err = proc.communicate()
+    # if 'HAZUS' in str(out):
+    #      print('yes')
+    #  else:
+    #      print('no')
+
+def get_nearest_tract(tracts):
+    pass
 
 # HAZ-918
-def get_depth(x):
-    return_periods = ('10', '25', '50', '100', '200', '250', '500', '1000')
-    return_period = ''.join(rp for rp in return_periods if rp == x)
+def get_depths(input_data):
+    # Reference AAL spreadsheet - skip first row
+    lookup_data = pd.read_excel(r'./Lookuptables/AAL.xlsx', engine='openpyxl', header=1)
+    lookup_data = lookup_data.iloc[:, :10]
+    # Re-order columns
+    lookup_data = lookup_data[['PELV_50', 10, 25, 50, 75, 200, 250, 500, 1000]]
+    new_column_names = {
+        10: '10_rp_depth',
+        25: '25_rp_depth',
+        50: '50_rp_depth',
+        75: '75_rp_depth',
+        200: '200_rp_depth',
+        250: '250_rp_depth',
+        500: '500_rp_depth',
+        1000: '1000_rp_depth'
+    }
+    # Rename columns
+    lookup_data = lookup_data.rename(columns=new_column_names)
+    # Join tables
+    data_merged = pd.merge(input_data, lookup_data, how="inner", on=["PELV_50"])
+    return data_merged
+
+# ----JIRA 916 Notes----
+# TODO: Creat function to check for syHazus database
+# TODO: Extract/get state & reference Census REST API into GeoPandas dataframe
+# TODO: Create function to cross reference points with Census dataframe (spatial intersection)
+# TODO: Create list of tracts that do not intersect a tract
+# TODO: Query Census REST API for nearest Tract neighbor (if no intersect)
+
+# --- JIRA 915 Notes----
+# TODO: Reference a map/lambda function (for HAZ-915)
