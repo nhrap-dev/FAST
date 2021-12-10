@@ -17,6 +17,7 @@
     :Bugfix: - https://github.com/nhrap-hazus/FAST/issues/6
     
 """
+from itertools import tee, islice, chain
 from osgeo import gdal, osr, gdal_array, gdalconst
 from osgeo.gdalconst import *
 from shapely.geometry import Point, Polygon
@@ -1293,31 +1294,31 @@ def to_shapefile(df, path):
 # TODO: Adjust SQL query to get tracts for specific state (reference input tract # --> 1st 2 numbers)
 # TODO: Adjust variables & input csv data (need just 1 row) (or grab raw CSV) - BC
 # Get tract (from ESRI REST API)
-# def get_tract_api(points, x, y):
-#     pass
-#     # https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=&text=&objectIds=&time=&geometry=-157.862017%2C21.312285&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson
-#     url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
-#     url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
-#     # Get first point (for initial reference)
-#     # TODO: Only get 1 record from CSV (for reference)
-#     for point in points:
-#         x, y = point[0], point[1]
-#         url = f'{url_base}{x}%2C{y}{url_end}'
-#         #url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
-#         initial_response = requests.get(url)
-#         data = initial_response.json().get('features')[0].get('properties')
-#         state = data.get('STATE')
-#         # county = data.get('COUNTY')
-#         # tract = data.get('TRACT')
-#        # new_tract = state + county + tract
-#         #tracts.append(new_tract)
-#     tracts_url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=STATE%3D{state}&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=4326&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
-#     tracts_response = requests.get(tracts_url)
-#     tracts = tracts_response.json().get('features')
-#     tracts = gpd.GeoDataFrame.from_features(tracts)
-#     # TODO: Remove print statement - BC
-#     print(tracts.head(5))
-#     return tracts
+def get_tract_api(points, x, y):
+    pass
+    # https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=&text=&objectIds=&time=&geometry=-157.862017%2C21.312285&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson
+    url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
+    url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
+    # Get first point (for initial reference)
+    # TODO: Only get 1 record from CSV (for reference)
+    for point in points:
+        x, y = point[0], point[1]
+        url = f'{url_base}{x}%2C{y}{url_end}'
+        #url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+        initial_response = requests.get(url)
+        data = initial_response.json().get('features')[0].get('properties')
+        state = data.get('STATE')
+        # county = data.get('COUNTY')
+        # tract = data.get('TRACT')
+       # new_tract = state + county + tract
+        #tracts.append(new_tract)
+    tracts_url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=STATE%3D{state}&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=4326&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+    tracts_response = requests.get(tracts_url)
+    tracts = tracts_response.json().get('features')
+    tracts = gpd.GeoDataFrame.from_features(tracts)
+    # TODO: Remove print statement - BC
+    print(tracts.head(5))
+    return tracts
 
 def intersect_tracts(tracts, points):
     pass
@@ -1361,12 +1362,60 @@ def get_depths(input_data):
     data_merged = pd.merge(input_data, lookup_data, how="inner", on=["PELV_50"])
     return data_merged
 
+# HAZ-915
+# TODO: Ask why this requires a raster input
+# TODO: How to get return period?
+# TODO: What if return period = 10?
+# TODO: Iterate through rasters (to get return period)
+# TODO: Use a reduce/lambda function for the calculation
+def get_aal_losses(df, return_period, pelv_50):
+    # https://www.fema.gov/sites/default/files/2020-09/fema_hazus_flood-model_technical-manual_2.1.pdf  # page 476
+    return_periods = [10, 25, 50, 75, 100, 200, 250, 500, 1000]
+    rp_index = return_periods.index(return_period)
+    select_return_periods = return_periods[:rp_index + 1]
+    lookup_data = pd.read_excel(r'./Lookuptables/AAL.xlsx', engine='openpyxl', header=1)
+    lookup_data = lookup_data.iloc[:, :10]
+    lookup_data = lookup_data[['PELV_50', 10, 25, 50, 75, 200, 250, 500, 1000]]
+    lookup_data = lookup_data[lookup_data['PELV_50'] == pelv_50]
+    lookup_data = lookup_data[lookup_data.columns.intersection(select_return_periods)]
+    pelv_list = lookup_data.values.flatten().tolist()
+    aal_list = []
+    for previous, item, next_item in get_previous_and_next_aal(pelv_list):
+        if item and next_item:
+            aal = get_aal(item, next_item, return_period)
+            aal_list.append(aal)
+    aal_sum = sum(aal_list)
+
+    #aal = functools.reduce(lambda a, b: , pelv_list)
+
+    # "The AAL is calculated for each structure using the formiula:
+    # AAL = Ln*(1/n-1/(n+1))/2 + Ln*(1/(n-1)-1/(n+1))/2 +....+Ln*(1/(n-1)-1/(n+1))/2+Ln*(1/(n-1)-1/(n))/2
+
+    # where n is the return period frequency
+
+    # Ex: If return periods 10, 25, 50 and 100 are provided the formula will be:
+
+    # AAL = L10*(1/10-1/25)/2 + L25*(1/10-1/50)/2 + L50*(1/25-1/100)/2 + L100*(1/50-1/100)/2
+
+    # * L = Loss (Year Period) (ie: L = 100 for 100 year return period)
+    # * n = AAL Lookup value (from 100 year)
+
+def get_aal(a, b, return_period):
+    L = return_period
+    n1 = a
+    n2 = b
+    aal = (L * n1 * (1 / n1 - 1 / n2)) / 2
+    return aal
+
+def get_previous_and_next_aal(pelv_list):
+    prevs, items, nexts = tee(pelv_list, 3)
+    prevs = chain([None], prevs)
+    nexts = chain(islice(nexts, 1, None), [None])
+    return zip(prevs, items, nexts)
+
 # ----JIRA 916 Notes----
 # TODO: Creat function to check for syHazus database
 # TODO: Extract/get state & reference Census REST API into GeoPandas dataframe
 # TODO: Create function to cross reference points with Census dataframe (spatial intersection)
 # TODO: Create list of tracts that do not intersect a tract
 # TODO: Query Census REST API for nearest Tract neighbor (if no intersect)
-
-# --- JIRA 915 Notes----
-# TODO: Reference a map/lambda function (for HAZ-915)
