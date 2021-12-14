@@ -512,6 +512,7 @@ class bottom_buttons_frame(ttk.Frame):
                 udf_args = arg_fields_list
                 udf_args.append(flood_type_converted)
                 udf_args.append(rasters)
+                analysis_type = self.controller.selected_analysis_type.get()
                 #print(f"Standard Analysis UDF Arguments: {udf_args}")
 
                 ''' Example UDF Input: 'udf filename', [,,,,[,]]
@@ -519,7 +520,7 @@ class bottom_buttons_frame(ttk.Frame):
                     entries: ['FltyId', 'Occ', 'Cost', 'Area', 'NumStories', 'FoundationType', 'FirstFloorHt', 'ContentCost', 'BldgDamageFnID', 'CDDF_ID', '', '', '', 'Latitude', 'Longitude', 'V', ['with2010_TWL_TC_Tr_010_wgs84.tif', 'with2010_TWL_TC_Tr_025_wgs84.tif']]
                 '''
                 runUDF = UDF()
-                haz = runUDF.local(udf, udf_args, flood_type) # Run the Hazus script with input from user using the GUI
+                haz = runUDF.local(udf, udf_args, flood_type, analysis_type) # Run the Hazus script with input from user using the GUI
                 #print('Run Hazus > Flood > UDF', haz, udf_args)
                 if haz[0]:
                     self._popupmsg(haz[1])
@@ -529,9 +530,24 @@ class bottom_buttons_frame(ttk.Frame):
                 rp_rasters = self.controller.selected_rasters_aal
                 print(f"Selected Rasters AAL: {rp_rasters}")
                 #TODO run analysis once function is implemented
+            # TODO: Add PELV Logic here - BC
             if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
+                rasters = []
                 raster = self.controller.selected_raster_aal_pelv.get()
+                rasters.append(raster)
                 print(f"Selected Raster AAL PELV: {raster}")
+                udf_args = arg_fields_list
+                udf_args.append(flood_type_converted)
+                udf_args.append(rasters)
+                analysis_type = self.controller.selected_analysis_type.get()
+                runUDF = UDF()
+                haz = runUDF.local(udf, udf_args, flood_type, analysis_type) # Run the Hazus script with input from user using the GUI
+                #print('Run Hazus > Flood > UDF', haz, udf_args)
+                if haz[0]:
+                    self._popupmsg(haz[1])
+                else:
+                    self._popupmsg('Processing Failed. See Console or Log for details.')
+                #print(f"Standard Analysis UDF Arguments: {udf_args}")
                 #TODO run analysis once function is implemented
         
     def _check_selections(self):
