@@ -53,7 +53,7 @@ class UDF():
     # as a geoprocessing script tool, or as a module imported in
     # another script
     @staticmethod
-    def local(spreadsheet, fmap, flood_type):
+    def local(spreadsheet, fmap, flood_type, analysis_type):
         raster = fmap[-1]  # [-1]
         fmap = fmap[:-1]
         cwd = os.getcwd()
@@ -63,10 +63,11 @@ class UDF():
         argv = (spreadsheet, os.path.join(cwd, r"lookuptables"), outDir, [
                 os.path.join(cwd, 'rasters', grid) for grid in raster], "False", fmap)
         objUDF = UDF()
-        return objUDF.flood_damage(*argv, flood_type)
-
+        return objUDF.flood_damage(*argv, flood_type, analysis_type)
+# TODO: Add conditional logic for analysis_type (ie: PELV)
     @staticmethod
-    def flood_damage(UDFOrig, LUT_Dir, ResultsDir, DepthGrids, QC_Warning, fmap, flood_type):
+    # TODO: Get analysis type - BC
+    def flood_damage(UDFOrig, LUT_Dir, ResultsDir, DepthGrids, QC_Warning, fmap, flood_type, analysis_type):
         # UDFOrig = USer-supplied UDF input file. Full pathname required
         # LUT_Dir = folder name where the Lookup table libraries reside
         # ResultsDir = Where the output file geodatabase will be created. Folder (dir) must exist, else fail
@@ -79,6 +80,7 @@ class UDF():
         #flood_type = hazardTypes.get(flood_type)
         #print(f'\nThis is the flood_type: {flood_type}\n')
         #pelv_curves = read_pelv_curves(flood_type)
+        print(f'\nThe analysis type is: {analysis_type}\n')
         gdal.SetCacheMax(2**30*5)
         logger = logging.getLogger('FAST')
         logger.setLevel(logging.INFO)
@@ -159,6 +161,7 @@ class UDF():
                 GridName = "GridName"
                 Restor_Days_Min = "Restor_Days_Min"  # Repair/Restoration times
                 Restor_Days_Max = "Restor_Days_Max"
+                # TODO: Change field name from 'PELV_50' to 'PELV_Median' - BC
                 PELV_50 = "PELV_50"
                 #########################################################################################################
                 #  Setups for other namings.
@@ -389,6 +392,7 @@ class UDF():
                                 else:
                                     X = float(getValue(longitude))
                                     Y = float(getValue(latitude))
+                                    # TODO: Review this function - is it correct - BC
                                     X, Y = list(utm.from_latlon(Y, X)[
                                                 :2]) if IsUTM else [X, Y]
                                     col = int((X - xOrigin) / pixelWidth)
@@ -1065,24 +1069,31 @@ class UDF():
                     file_out.close()
                     file_out = open(outputDir, 'w')
                     # Get Tracts
-                    # Remove duplicate tract numbers (speeds up SQL query)
-                    input_data_no_dupes = input_data.drop_duplicates(subset='Tract')
-                    tract_list = tuple(input_data_no_dupes['Tract'].apply(str).tolist())
-                    tracts = get_tracts(tract_list)
+                    if ('Tract', 'tract') in input_data.columns and check_for_hazus():
+                        # Remove duplicate tract numbers (speeds up SQL query)
+                        input_data_no_dupes = input_data.drop_duplicates(subset='Tract')
+                        tract_list = tuple(input_data_no_dupes['Tract'].apply(str).tolist())
+                    # if check_for_hazus():
+                        tracts = get_tracts(tract_list)
+                    else:
+                        tracts = get_tracts_api(input_data)
                     # Get PELV Curves
                     # TODO: Either install openpyxl with conda (add to environment.yaml) or convert to CSVs
                     pelv_curves = read_pelv_curves(flood_type)
                     pelv_curves_50 = pelv_curves[['tract', 50]]
                     # Join tables
-                    input_data['Tract'] = input_data['Tract'].apply(str)
-                    input_udf_tracts_join = pd.merge(
-                        input_data, tracts, how="inner", on=["Tract"]
-                    )
+                    if ('Tract', 'tract') in tracts.columns and check_for_hazus():
+                        input_data['Tract'] = input_data['Tract'].apply(str)
+                        input_udf_tracts_join = pd.merge(
+                            input_data, tracts, how="inner", on=["Tract"]
+                        )
+                    else:
+                        input_udf_tracts_join = tracts
                     # Rename column
                     input_udf_tracts_join = input_udf_tracts_join.rename(columns={'Tract': 'tract'})
                     pelv_curves_50['tract'] = pelv_curves_50['tract'].apply(str)
                     # Rename column
-                    pelv_curves_50 = pelv_curves_50.rename(columns={50: 'PELV_50'})
+                    pelv_curves_50 = pelv_curves_50.rename(columns={50: 'PELV_Median'})
                     pelv_curves_50_join = pd.merge(
                         input_udf_tracts_join, pelv_curves_50, how="inner", on=["tract"]
                     )
@@ -1092,22 +1103,35 @@ class UDF():
                     pelv_curves_50_join = pelv_curves_50_join.rename(columns={'tract': 'Tract'})
                     # Replace '.' with '_' in column names
                     pelv_curves_50_join.columns = pelv_curves_50_join.columns.str.replace('[.]', '_')
-                    pelv_curves_50_join.drop(
-                        ['tract_geometry', 'crs'],
-                        axis=1,
-                        inplace=True,
-                    )
+                    if ('tract_geometry', 'crs') in pelv_curves_50_join.columns:
+                        pelv_curves_50_join.drop(
+                            ['tract_geometry', 'crs'],
+                            axis=1,
+                            inplace=True,
+                        )
+                    if ('Tract_left') in pelv_curves_50_join.columns:
+                            pelv_curves_50_join.drop(
+                                'Tract_left',
+                                axis=1,
+                                inplace=True,
+                            )
                     # TODO: Check if file(s) exists
                     # TODO: Handle points outside of tract boundary (ie: in ocean)
                     file_name = UDFRoot.split('.')[0] + "_" + y.split('.')[0]
+                    print(f'\nTotal row count: {len(pelv_curves_50_join.index)}\n')
+                    to_csv(pelv_curves_50_join, file_out, line_terminator='\n', drop_geom=True)
                     # Assign depths for each return period per PELV_50
-                    depth_data = get_depths(pelv_curves_50_join)
+                   # depth_data = get_depths(pelv_curves_50_join)
+                    # Get Average Annual Loss
+                    # TODO: Find out how to pass return period here
+                    # TODO: Merge into output data
+                #    aal_data = get_aal_losses(pelv_curves_50_join, return_period, pelv_50)
                     # Create GeoJSON file
-                    to_geojson(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".geojson"))
+                    #to_geojson(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".geojson"))
                     # Create Shapefile- currently disabled
-                    to_shapefile(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".shp"))
+                    #to_shapefile(depth_data, os.path.join(Resultsfgdb, 'output', file_name + ".shp"))
                     # Create CSV file (with PELV curve field)
-                    to_csv(depth_data, file_out, line_terminator='\n', drop_geom=True)
+               #     to_csv(depth_data, file_out, line_terminator='\n', drop_geom=True)
                     file_out.close()
 # End PELV Curves
 ##################################################################################################
@@ -1294,52 +1318,79 @@ def to_shapefile(df, path):
 # TODO: Adjust SQL query to get tracts for specific state (reference input tract # --> 1st 2 numbers)
 # TODO: Adjust variables & input csv data (need just 1 row) (or grab raw CSV) - BC
 # Get tract (from ESRI REST API)
-def get_tract_api(points, x, y):
-    pass
+def get_tracts_api(points):
     # https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=&text=&objectIds=&time=&geometry=-157.862017%2C21.312285&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson
-    url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
-    url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
+    #url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?geometry='
+    #url_base = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query?where=STATE%3D15&text=&objectIds=&time=&geometry=-157.71943069999998%2C21.28772537&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+    #url_base = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb//tigerWMS_Census2010/MapServer/14/query?geometry='
+   # url_end = '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&returnIdsOnly=false&returnCountOnly=false&returnDistinctValues=false&resultRecordCount=1&returnExtentOnly=false&featureEncoding=esriDefault&f=geojson'
     # Get first point (for initial reference)
     # TODO: Only get 1 record from CSV (for reference)
-    for point in points:
-        x, y = point[0], point[1]
-        url = f'{url_base}{x}%2C{y}{url_end}'
-        #url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
-        initial_response = requests.get(url)
-        data = initial_response.json().get('features')[0].get('properties')
-        state = data.get('STATE')
-        # county = data.get('COUNTY')
-        # tract = data.get('TRACT')
-       # new_tract = state + county + tract
-        #tracts.append(new_tract)
+    first_point = points.iloc[0]
+    x, y = first_point['Longitude'], first_point['Latitude']
+    #url = f'{url_base}{x}%2C{y}{url_end}'
+    url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=1%3D1&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelWithin&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+    #url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=&text=&objectIds=&time=&geometry={x}%2C{y}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=10&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
+    initial_response = requests.get(url)
+    data = initial_response.json().get('features')[0].get('properties')
+    state = data.get('STATE')
     tracts_url = f'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2010/MapServer/14/query?where=STATE%3D{state}&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=STATE%2CCOUNTY%2CTRACT&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=4326&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson'
     tracts_response = requests.get(tracts_url)
     tracts = tracts_response.json().get('features')
     tracts = gpd.GeoDataFrame.from_features(tracts)
-    # TODO: Remove print statement - BC
-    print(tracts.head(5))
-    return tracts
+    cols = ['STATE', 'COUNTY', 'TRACT']
+    tracts['Tracts'] = tracts['STATE'].astype(str) + tracts['COUNTY'].astype(str) + tracts['TRACT'].astype(str)
+    tracts.drop(columns=cols, axis=1, inplace=True)
+    new_column_names = {
+        'Tracts': 'Tract'
+    }
+    tracts = tracts.rename(columns=new_column_names)
+    points_in_tracts = intersect_tracts(points, tracts)
+    return points_in_tracts
 
-def intersect_tracts(tracts, points):
-    pass
+def intersect_tracts(points, tracts):
+    #points_in_tracts = gpd.overlay(points, tracts, how='intersection')
+#    points_in_tracts = gpd.sjoin(points, tracts, op='within') 
+    points_in_tracts = gpd.sjoin(points, tracts)
+    points_in_tracts = points_in_tracts.rename(columns={'Tract_right': 'Tract'})
+    points_in_tracts.drop('index_right', axis=1, inplace=True)
+    return points_in_tracts
 
 def check_for_hazus():
-    pass
     # windows cmd (subprocess) --> osql -L 
         # then, parse list
-    
-    # import subprocess
-    # proc = subprocess.Popen('osql -L', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    # out, err = proc.communicate()
-    # if 'HAZUS' in str(out):
-    #      print('yes')
-    #  else:
-    #      print('no')
+    try:
+        proc = subprocess.Popen('osql -L', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        out, err = proc.communicate()
+        # TODO: Change for testing - BC (should be 'HAZUS')
+        if 'HAZUS' in str(out):
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(e)
+        return False
 
 def get_nearest_tract(tracts):
     pass
 
 # HAZ-918
+# TODO: Fix this to re-calculate fields & export csv per return period
+    """ Update these fields
+    --------------------------------
+        - BldgLossUSD
+        - BldgDmgPct
+        - ContDmgPct
+        - ContentLossUSD
+        - InvDmgPct
+        - InventoryLossUSD
+        - Debris_Fin
+        - Debris_Struct
+        - Debris_Found
+        - Debris_Tot
+        - Restor_Days_Min
+        - Restor_Days_Max
+    """
 def get_depths(input_data):
     # Reference AAL spreadsheet - skip first row
     lookup_data = pd.read_excel(r'./Lookuptables/AAL.xlsx', engine='openpyxl', header=1)
@@ -1360,6 +1411,14 @@ def get_depths(input_data):
     lookup_data = lookup_data.rename(columns=new_column_names)
     # Join tables
     data_merged = pd.merge(input_data, lookup_data, how="inner", on=["PELV_50"])
+    data_merged['BldgLoss10'] = data_merged['BldgLossUSD'] + data_merged['10_rp_depth']
+    data_merged['BldgLoss25'] = data_merged['BldgLossUSD'] + data_merged['25_rp_depth']
+    data_merged['BldgLoss50'] = data_merged['BldgLossUSD'] + data_merged['50_rp_depth']
+    data_merged['BldgLoss75'] = data_merged['BldgLossUSD'] + data_merged['75_rp_depth']
+    data_merged['BldgLoss200'] = data_merged['BldgLossUSD'] + data_merged['200_rp_depth']
+    data_merged['BldgLoss250'] = data_merged['BldgLossUSD'] + data_merged['250_rp_depth']
+    data_merged['BldgLoss500'] = data_merged['BldgLossUSD'] + data_merged['500_rp_depth']
+    data_merged['BldgLoss1000'] = data_merged['BldgLossUSD'] + data_merged['1000_rp_depth']
     return data_merged
 
 # HAZ-915
@@ -1386,8 +1445,6 @@ def get_aal_losses(df, return_period, pelv_50):
             aal_list.append(aal)
     aal_sum = sum(aal_list)
 
-    #aal = functools.reduce(lambda a, b: , pelv_list)
-
     # "The AAL is calculated for each structure using the formiula:
     # AAL = Ln*(1/n-1/(n+1))/2 + Ln*(1/(n-1)-1/(n+1))/2 +....+Ln*(1/(n-1)-1/(n+1))/2+Ln*(1/(n-1)-1/(n))/2
 
@@ -1395,7 +1452,15 @@ def get_aal_losses(df, return_period, pelv_50):
 
     # Ex: If return periods 10, 25, 50 and 100 are provided the formula will be:
 
-    # AAL = L10*(1/10-1/25)/2 + L25*(1/10-1/50)/2 + L50*(1/25-1/100)/2 + L100*(1/50-1/100)/2
+    """
+
+                                 L1 + L2                                     L2 + L3    
+    AAL =    (1/y1 - 1/y2 )  *  ----------       +       (1/y2 - 1/y3 ) *   ----------     +     
+ 	                                2                                           2                   ...... 
+ 
+    L = building loss
+    y = year (f in docs)
+    """
 
     # * L = Loss (Year Period) (ie: L = 100 for 100 year return period)
     # * n = AAL Lookup value (from 100 year)
@@ -1404,7 +1469,7 @@ def get_aal(a, b, return_period):
     L = return_period
     n1 = a
     n2 = b
-    aal = (L * n1 * (1 / n1 - 1 / n2)) / 2
+    aal = L * n1 * ((1 / n1 - 1 / n2) / 2)
     return aal
 
 def get_previous_and_next_aal(pelv_list):
