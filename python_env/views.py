@@ -1,14 +1,13 @@
 print('Starting FAST...')
 
 import os
-import csv
 from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 import json
 import tkinter as tk
 import tkinter.ttk as ttk
-from tkinter import filedialog
+from tkinter import filedialog, Tcl
 from tkinter import messagebox as messagebox
 from threading import Thread
 import ctypes
@@ -29,6 +28,7 @@ class GUI(tk.Frame):
 
         self.selected_rasters_standard = [] # list of >= 1 rasters in C:\_repositories\Development\FAST\rasters
         self.selected_rasters_aal = {} # dictionary: return period:raster in C:\_repositories\Development\FAST\rasters
+        self.selected_return_periods_aal = {}
         self.selected_raster_aal_pelv = tk.StringVar() # path to single 100yr raster in C:\_repositories\Development\FAST\rasters
 
         self.selected_udf = tk.StringVar() # path to csv file: C:\_repositories\Development\FAST\UDF\ND_Minot_UDF.csv
@@ -67,6 +67,7 @@ class GUI(tk.Frame):
              dir = os.path.dirname(dir)
         cwd = os.path.join(dir,'rasters') # Default raster directory
         rasters = [f for f in listdir(cwd) if isfile(join(cwd, f)) and f.endswith(('.tif','.tiff','.nc'))] 
+        rasters = Tcl().call('lsort', '-dict', rasters)
         return rasters
 
 class select_flood_type_frame(ttk.Frame):
@@ -217,7 +218,7 @@ class select_raster_standard_frame(ttk.Frame):
         for i in self.listbox_raster.curselection():
             selected_rasters.append(self.listbox_raster.get(i))
         self.controller.selected_rasters_standard = (selected_rasters)
-        print(f"Selected Rasters Standard: {self.controller.selected_rasters_standard}")
+        print(f"Selected Rasters Standard: {', '.join(self.controller.selected_rasters_standard)}")
 
 
 class select_raster_aal_frame(ttk.Frame):
@@ -229,6 +230,10 @@ class select_raster_aal_frame(ttk.Frame):
         super().__init__()
         self.controller = controller
         self.columnconfigure(0, weight=1)
+        self.rasters_dict = {}
+        self.selected_return_periods = {}
+        self.selected_rasters = {}
+        self.comboboxes = {}
         self._create_widgets()
 
     def _validate_returnperiod_entry(self, P):
@@ -283,27 +288,50 @@ class select_raster_aal_frame(ttk.Frame):
         self.labels = {} #dictionaries to reference the tkinter widget by rp_name from list above
         self.entries = {}
         self.comboboxes = {}
+        self.return_periods = []
+        self.selected_return_periods = {}
+        self.selected_rasters = {}
+        self.rasters = self.controller.rasters
 
         for x in range(1,13):
             self.rp_names.append(f"Return Period {x}")
-        
-        i = 2 #counter used for placement in the grid
-        for name in self.rp_names:
-            #creat the label, entrybox and combobox for the user to input data and select raster
+
+        for i, name in enumerate(self.rp_names):
+            #create the label, entrybox and combobox for the user to input data and select raster
             lab = tk.Label(self.canvas_frame, text=name+':')
             lab.grid(column=0, row=i, sticky='w')
             self.labels[name] = lab
-
-            ent = tk.Entry(self.canvas_frame, width=10, validate='key', validatecommand=vcmd)
+            # Return periods
+            sv = tk.StringVar()
+            sv.trace("w", lambda name, index, mode, sv=sv, i=i: self._set_return_periods(sv, index, i))
+            ent = tk.Entry(self.canvas_frame, width=10, validate='key', textvariable=sv, validatecommand=vcmd)
             ent.grid(column=1, row=i, sticky='w')
             self.entries[name] = ent
-
+            # Rasters
             combo = ttk.Combobox(self.canvas_frame, width=40)
             combo.configure(values=self.controller.rasters)
             combo.config(state='readonly')
             combo.grid(column=2, row=i, sticky='w', padx=5, pady=5)
             self.comboboxes[name] = combo
-            i += 1
+            self.comboboxes[name].bind("<<ComboboxSelected>>", lambda event, i=i, raster=name: self._set_raster(event, i, raster))
+           # i += 1
+
+    def _set_return_periods(self, sv, index, i):
+        self.selected_return_periods[i] = sv.get()
+        self.controller.selected_return_periods_aal[i] = self.selected_return_periods[i]
+    
+    def _set_raster(self, event, i, name):
+        selected_raster = self.comboboxes[name].get()
+        self.selected_rasters[i] = selected_raster
+        self.controller.selected_rasters_aal[i] = selected_raster
+
+    # def _set_selected_rasters_aal(self, *args):
+    #     selected_rasters = []
+    #     for i in self.listbox_raster.curselection():
+    #         selected_rasters.append(self.listbox_raster.get([i]))
+    #     self.controller.selected_rasters_aal = selected_rasters
+    #     print(f'Selected Rasters AAL: {self.controller.selected_rasters_aal}')
+
 
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
@@ -505,50 +533,51 @@ class bottom_buttons_frame(ttk.Frame):
             print(f"Selected Flood Type: {flood_type} Converted: {flood_type_converted}")
             print(f"Selected Analysis Type: {analysis_type}")
             print(f"Selected UDF: {udf}")
-            #print(f"Selected UDF Mapped and Ordered Fields: {arg_fields_list}")
-
+            print(f'Selected UDF Mapped and Ordered Fields: {arg_fields_list}')
             if self.controller.selected_analysis_type.get() == 'Standard':
                 rasters = self.controller.selected_rasters_standard
                 udf_args = arg_fields_list
                 udf_args.append(flood_type_converted)
                 udf_args.append(rasters)
                 analysis_type = self.controller.selected_analysis_type.get()
-                #print(f"Standard Analysis UDF Arguments: {udf_args}")
-
-                ''' Example UDF Input: 'udf filename', [,,,,[,]]
-                    Root filename: C:/_repositories/Development/FAST/UDF/HI_Honolulu_UDF.csv
-                    entries: ['FltyId', 'Occ', 'Cost', 'Area', 'NumStories', 'FoundationType', 'FirstFloorHt', 'ContentCost', 'BldgDamageFnID', 'CDDF_ID', '', '', '', 'Latitude', 'Longitude', 'V', ['with2010_TWL_TC_Tr_010_wgs84.tif', 'with2010_TWL_TC_Tr_025_wgs84.tif']]
-                '''
-                runUDF = UDF()
-                haz = runUDF.local(udf, udf_args, flood_type, analysis_type) # Run the Hazus script with input from user using the GUI
-                #print('Run Hazus > Flood > UDF', haz, udf_args)
-                if haz[0]:
-                    self._popupmsg(haz[1])
-                else:
-                    self._popupmsg('Processing Failed. See Console or Log for details.')
+                lookup_tables = os.path.join(os.getcwd(), 'lookuptables')
+                results_dir = os.path.dirname(udf)
+                fmap = udf_args[:-1]
+                rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
+                runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type)
+                haz = runUDF.get_flood_damage()
             if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
-                rp_rasters = self.controller.selected_rasters_aal
-                print(f"Selected Rasters AAL: {rp_rasters}")
-                #TODO run analysis once function is implemented
-            # TODO: Add PELV Logic here - BC
-            if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
-                rasters = []
-                raster = self.controller.selected_raster_aal_pelv.get()
-                rasters.append(raster)
-                print(f"Selected Raster AAL PELV: {raster}")
+                rasters = [raster for raster in self.controller.selected_rasters_aal.values()]
+                return_periods = [rp for rp in self.controller.selected_return_periods_aal.values()]
+                print(f"Selected AAL Rasters: {', '.join(rasters)}")
                 udf_args = arg_fields_list
                 udf_args.append(flood_type_converted)
                 udf_args.append(rasters)
                 analysis_type = self.controller.selected_analysis_type.get()
-                runUDF = UDF()
-                haz = runUDF.local(udf, udf_args, flood_type, analysis_type) # Run the Hazus script with input from user using the GUI
-                #print('Run Hazus > Flood > UDF', haz, udf_args)
-                if haz[0]:
-                    self._popupmsg(haz[1])
-                else:
-                    self._popupmsg('Processing Failed. See Console or Log for details.')
-                #print(f"Standard Analysis UDF Arguments: {udf_args}")
-                #TODO run analysis once function is implemented
+                lookup_tables = os.path.join(os.getcwd(), 'lookuptables')
+                results_dir = os.path.dirname(udf)
+                fmap = udf_args[:-1]
+                #return_periods = (lambda .0: [ rp for rp in .0 ])(return_periods.values())
+                rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
+                runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type, analysis_type, return_periods)
+                haz = runUDF.get_flood_damage()
+            if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
+                rasters = []
+                raster = self.controller.selected_raster_aal_pelv.get()
+                rasters.append(raster)
+                print(f'''Selected Raster AAL PELV: {raster}''')
+                udf_args = arg_fields_list
+                udf_args.append(flood_type_converted)
+                udf_args.append(rasters)
+                analysis_type = self.controller.selected_analysis_type.get()
+                lookup_tables = os.path.join(os.getcwd(), 'lookuptables')
+                results_dir = os.path.dirname(udf)
+                fmap = udf_args[:-1]
+                rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
+                print(f"Selected PELV Raster: {', '.join(rasters)}")
+                runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type, analysis_type)
+                haz = runUDF.get_flood_damage()
+
         
     def _check_selections(self):
         ''' Check if all selections are made, if not prompt user
