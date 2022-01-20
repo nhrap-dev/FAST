@@ -308,13 +308,12 @@ class select_raster_aal_frame(ttk.Frame):
             ent.grid(column=1, row=i, sticky='w')
             self.entries[name] = ent
             # Rasters
-            combo = ttk.Combobox(self.canvas_frame, width=40)
+            combo = ttk.Combobox(self.canvas_frame, width=65)
             combo.configure(values=self.controller.rasters)
             combo.config(state='readonly')
             combo.grid(column=2, row=i, sticky='w', padx=5, pady=5)
             self.comboboxes[name] = combo
             self.comboboxes[name].bind("<<ComboboxSelected>>", lambda event, i=i, raster=name: self._set_raster(event, i, raster))
-           # i += 1
 
     def _set_return_periods(self, sv, index, i):
         self.selected_return_periods[i] = sv.get()
@@ -342,7 +341,7 @@ class select_raster_aal_frame(ttk.Frame):
             TODO use this to create a dictionary to set self.controller.selected_rasters_aal
         '''
         for name in self.rp_names:
-            label = self.labels[name] # todo get text # can use name instead as its the same
+            #label = self.labels[name] # todo get text # can use name instead as its the same
             entry = self.entries[name].get()
             raster = self.comboboxes[name].get()
             print(f"Label: {name} Entry: {entry} Raster: {raster}")
