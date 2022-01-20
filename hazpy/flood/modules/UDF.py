@@ -239,7 +239,7 @@ class UDF:
                     path = f'./UDF/output/pelv/{output_file}-PELV-100.csv'
                     self.write_csv(point_depths, path)
                     point_depths.name = '100'
-                    aal_df_list.append(point_depths) # TODO: need to correctly catch this in order for AAL calculation - BC
+                    aal_df_list.append(point_depths) # for AAL calculations
                 else:
                     path = f'./UDF/output/standard/{output_file}.csv'
                     self.write_csv(point_depths, path)
