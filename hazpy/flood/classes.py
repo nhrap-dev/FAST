@@ -5,11 +5,12 @@ from .modules.classes import Base
 # from .modules import GeneralBuildingStock
 # from .modules import IndirectEconomicLoss
 # from .modules import TransportationSystems
+from .modules import AAL
+from .modules import PELV
 from .modules import UDF
 # from .modules import UtilitySystems
 # from .modules import Vehicles
 # from .modules import WhatIf
-#from .modules import UDF
 
 
 class Flood(Base):
@@ -37,6 +38,8 @@ class Analysis():
         # self.generalBuildingStock = GeneralBuildingStock()
         # self.indirectEconomicLoss = IndirectEconomicLoss()
         # self.transportationSystems = TransportationSystems()
+        self.AAL = AAL()
+        self.PELV = PELV()
         self.UDF = UDF()
         # self.utilitySystems = UtilitySystems()
         # self.vehicles = Vehicles()
