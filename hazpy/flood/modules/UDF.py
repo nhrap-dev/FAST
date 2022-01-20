@@ -17,7 +17,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-class UDF_Test:
+class UDF:
     def __init__(
         self,
         UDFOrig,
@@ -178,7 +178,7 @@ class UDF_Test:
             # Measure script performance
             start_time = time.time()
             #print(f'\nStart time: {start_time}\n')
-            QC_Warning = self.QC_Warning.lower() == 'true'
+            #QC_Warning = self.QC_Warning.lower() == 'true'
         #    self.log_messages()
             self.change_directory()
             input = self.read_csv(self.UDFOrig)
@@ -220,7 +220,7 @@ class UDF_Test:
                 point_depths = self.get_inventory_cost(point_depths)     #TODO: Review
                 point_depths = self.get_building_loss(point_depths)      #TODO: Review
                 point_depths = self.get_content_loss(point_depths)       #TODO: Review
-                point_depths = self.get_inventory_loss(point_depths)     #TODO: Review --> Adjust for > p24 & coastal zone
+                point_depths = self.get_inventory_loss(point_depths)     #TODO: Review --> Adjust for > p24 & coastal zone?
                 point_depths = self.get_debris(point_depths)
                 point_depths = self.get_restore_time(point_depths)
                 # Order column names
@@ -468,16 +468,31 @@ class UDF_Test:
         Args:
             df ([type]): [description]
         """
-        lookup_table = "flBldgStructDmgFn.csv"
+        if 'BldgDamageFnID' in self.fmap:
+            lookup_table = "flBldgStructDmgFn.csv"
+        else:
+            if self.flood_type == 'Riverine':
+                lookup_table = "Building_DDF_Riverine_LUT_Hazus4p0.csv"
+            elif self.flood_type in ('CAE', 'Coastal A'):
+                lookup_table = "Building_DDF_CoastalA_LUT_Hazus4p0.csv"
+            else:
+                lookup_table = "Building_DDF_CoastalV_LUT_Hazus4p0.csv"
         lookup_table_df = self.get_lookup_table(lookup_table)
-        df = df.merge(lookup_table_df, how='left', left_on='BldgDamageFnID', right_on='BldgDmgFnID')
+        if 'BldgDamageFnID' in self.fmap:
+            df = df.merge(lookup_table_df, how='left', left_on='BldgDamageFnID', right_on='BldgDmgFnID')
+        else:
+            df = df.merge(lookup_table_df, how='left', left_on='SOID', right_on='SpecificOccupId')
         df['l_index'] = np.where(df['Depth_in_Struc'].apply(np.floor) < 0, 'm', 'p') + np.where(df['Depth_in_Struc'] > 24, '24', df['Depth_in_Struc'].abs().apply(np.floor).astype(str).apply(lambda x: x.replace('.0','')))
         df['u_index'] = np.where(df['Depth_in_Struc'].apply(np.ceil) < 0, 'm', 'p') + np.where(df['Depth_in_Struc'] > 24, '24', df['Depth_in_Struc'].abs().apply(np.ceil).astype(str).apply(lambda x: x.replace('.0','')))
         try:
             df['BldgDmgPct'] = df.apply(lambda row: self.get_loss_fn(row), axis=1)
             df['BldgLossUSD'] =  (df['BldgDmgPct'] / 100) * df['Cost']
             df['BldgLossUSD'] = df['BldgLossUSD'].astype(str).str.slice(0, 15).astype(float).round(2)
-            remove_columns = ['BldgDmgFnID', 'Occupancy', 'Source', 'Description', 'm4', 'm3', 'm2','m1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10','p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20','p21', 'p22', 'p23', 'p24', 'Comment', 'l_index', 'u_index']
+            if 'BldgDamageFnID' in self.fmap:
+                remove_columns = ['BldgDmgFnID', 'Occupancy', 'Source', 'Description', 'm4', 'm3', 'm2','m1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10','p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20','p21', 'p22', 'p23', 'p24', 'Comment', 'l_index', 'u_index']
+            else:
+                df['BldgDamageFnID'] = df['DDF_ID']
+                remove_columns = ['Occupancy', 'SpecificOccupId', 'Source', 'Description', 'Stories', 'Comment', 'm4', 'm3', 'm2', 'm1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22', 'p23', 'p24', 'DDF_ID', 'Basement', 'HazardRiverine', 'HazardCV', 'HazardCA', 'SortOrder', 'l_index', 'u_index']
             df = self.remove_columns(df, remove_columns)
             return df
         except:
@@ -493,16 +508,31 @@ class UDF_Test:
         Args:
             df ([type]): [description]
         """
-        lookup_table ="flBldgContDmgFn.csv"
+        if 'CDDF_ID' in self.fmap:
+            lookup_table = "flBldgContDmgFn.csv"
+        else:
+            if self.flood_type == 'Riverine':
+                lookup_table = "Content_DDF_Riverine_LUT_Hazus4p0.csv"
+            elif self.flood_type in ('CAE', 'Coastal A'):
+                lookup_table = "Content_DDF_CoastalA_LUT_Hazus4p0.csv"
+            else:
+                lookup_table = "Content_DDF_CoastalV_LUT_Hazus4p0.csv"
         lookup_table_df = self.get_lookup_table(lookup_table)
-        df = df.merge(lookup_table_df, how='left', left_on='CDDF_ID', right_on='ContDmgFnId')
+        if 'CDDF_ID' in self.fmap:
+            df = df.merge(lookup_table_df, how='left', left_on='CDDF_ID', right_on='ContDmgFnId')
+        else:
+            df = df.merge(lookup_table_df, how='left', left_on='SOID', right_on='SpecificOccupId')
         df['l_index'] = np.where(df['Depth_in_Struc'].apply(np.floor) < 0, 'm', 'p') + np.where(df['Depth_in_Struc'] > 24, '24', df['Depth_in_Struc'].abs().apply(np.floor).astype(str).apply(lambda x: x.replace('.0','')))
         df['u_index'] = np.where(df['Depth_in_Struc'].apply(np.ceil) < 0, 'm', 'p') + np.where(df['Depth_in_Struc'] > 24, '24', df['Depth_in_Struc'].abs().apply(np.ceil).astype(str).apply(lambda x: x.replace('.0','')))
         try:
             df['ContDmgPct'] = df.apply(lambda row: self.get_loss_fn(row), axis=1)
             df['ContentLossUSD'] =  ((df['ContDmgPct'] / 100) * df['Cost']) / 2  #TODO: Review this
             df['ContentLossUSD'] = df['ContentLossUSD'].astype(str).str.slice(0, 15).astype(float).round(2)
-            remove_columns = ['Occupancy', 'Source', 'Description', 'm4', 'm3', 'm2', 'm1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22', 'p23', 'p24', 'Comment', 'l_index', 'u_index']
+            if 'CDDF_ID' in self.fmap:
+                remove_columns = ['Occupancy', 'Source', 'Description', 'm4', 'm3', 'm2', 'm1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22', 'p23', 'p24', 'Comment', 'l_index', 'u_index']
+            else:
+                df['CDDF_ID'] = df['DDF_ID']
+                remove_columns = ['Occupancy', 'SpecificOccupId', 'Source', 'Description', 'Stories', 'Comment', 'm4', 'm3', 'm2', 'm1', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22', 'p23', 'p24', 'DDF_ID', 'Basement', 'HazardRiverine', 'HazardCV', 'HazardCA', 'SortOrder', 'l_index', 'u_index']
             df = self.remove_columns(df, remove_columns)
             return df
         except:
@@ -566,16 +596,25 @@ class UDF_Test:
         # lookup_table_df = self.get_lookup_table(lookup_table)
         # lookup_df = lookup_table_df.merge(lookup_table_id, how='inner', left_on='InvDmgFnId', right_on='DDF_ID')
 
-        #lookup_table ="flBldgInvDmgFn.csv"
         # TODO Add if/else statement if IDDF is provided
-        lookup_table = 'Inventory_DDF_LUT.csv'
-        lookup_table_df = self.get_lookup_table(lookup_table)
-        econ_lookup_table = 'flBldgEconParamSalesAndInv.csv'
-        econ_lookup_df = self.get_lookup_table(econ_lookup_table)
-        lookup_df = lookup_table_df.merge(econ_lookup_df, how='inner', on='Occupancy')
-        #lookup_table_df['Occupancy'] = lookup_table_df['Occupancy'].astype(str)
-        #df['Occ'] = df['Occ'].astype(str)
-        df = df.merge(lookup_df, how='left', left_on='Occ', right_on='Occupancy')
+        #lookup_table = 'Inventory_DDF_LUT.csv'
+        try:
+            lookup_table = 'Inventory_DDF_LUT.csv'
+            lookup_table_df = self.get_lookup_table(lookup_table)
+            econ_lookup_table = 'flBldgEconParamSalesAndInv.csv'
+            econ_lookup_df = self.get_lookup_table(econ_lookup_table)
+            lookup_df = lookup_table_df.merge(econ_lookup_df, how='inner', on='Occupancy')
+            #lookup_table_df['Occupancy'] = lookup_table_df['Occupancy'].astype(str)
+            #df['Occ'] = df['Occ'].astype(str)
+            df = df.merge(lookup_df, how='left', left_on='Occ', right_on='Occupancy')
+        except Exception as e:
+            print('\n')
+            print(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(fname)
+            print(exc_type, exc_tb.tb_lineno)
+            print('\n')
         df.fillna(0, inplace=True)
         df['l_index'] = np.where(df['Depth_in_Struc'].apply(np.floor) < 0, 'm', 'p') + df['Depth_in_Struc'].abs().apply(np.floor).astype(str).apply(lambda x: x.replace('.0',''))
         df['u_index'] = np.where(df['Depth_in_Struc'].apply(np.ceil) < 0, 'm', 'p') + df['Depth_in_Struc'].abs().apply(np.ceil).astype(str).apply(lambda x: x.replace('.0',''))
@@ -596,7 +635,7 @@ class UDF_Test:
             with rio.open(depth_grid) as grid:
                 crs = grid.crs
                 is_utm = self.check_utm(grid)
-                #print(f'Is it UTM? {is_utm}')
+                print(f'Is depth grid raster projection UTM? {is_utm}')
                 image = grid.read(1) # first band
                 results = (
                 {'properties': {'Depth': v}, 'geometry': s}
