@@ -20,7 +20,15 @@ class PELV():
         self.flood_type = flood_type
         self.analysis_type = analysis_type
 
-    def createConnection(self, orm='pyodbc'):
+    def create_connection(self, orm='pyodbc'):
+        """Creates a connection object to the local Hazus SQL Server database
+
+        Args:
+            orm (str, optional): ODBC driver connection - defaults to pyodbc.
+
+        Returns:
+            conn: pyodbc connection
+        """
         try:
             drivers = [
                 '{ODBC Driver 17 for SQL Server}',
@@ -37,28 +45,44 @@ class PELV():
                 # create connection with the latest driver
                 for driver in drivers:
                     try:
-                        conn = py.connect(self.getConnectionString(
+                        conn = py.connect(self.get_connection_string(
                             'pyodbc').format(d=driver, cn=computer_name))
                         break
                     except:
-                        conn = py.connect(self.getConnectionString(
+                        conn = py.connect(self.get_connection_string(
                             'pyodbc_auth').format(d=driver, cn=computer_name))
                         break
             return conn
         except Exception as e:
             print(e)
 
-    def getConnectionString(self, stringName):
+    def get_connection_string(self, string_name):
+        """Looks up a connection string in a json file based on an input argument
+
+        Args:
+            string_name: str -- the name of the connection string in the json file
+
+        Returns:
+            conn: pyodbc connection string
+        """
         try:
             with open("./src/connectionStrings.json") as f:
                 connectionStrings = json.load(f)
-                connectionString = connectionStrings[stringName]
+                connectionString = connectionStrings[string_name]
             return connectionString
         except Exception as e:
             print(e)
 
     # User must have HAZUS installed
     def get_tracts(self, tract_list):
+        """Get tracts from syHazus database (if installed locally)
+
+        Args:
+            tract_list (list): List of UDF provided tracts.
+
+        Returns:
+            tracts_df: Tracts Pandas dataframe
+        """
         sql = f"SELECT Tract, Shape.STAsText() AS tract_geometry, Shape.STSrid as crs FROM [syHazus].[dbo].[syTract] WHERE Tract IN {tract_list}"
         try:
             tracts_df = self.query(sql)
@@ -67,15 +91,30 @@ class PELV():
             print(e)
 
     def query(self, sql):
+        """Performs a SQL query on the Hazus SQL Server database
+
+        Args:
+            sql: str: TSQL query
+
+        Returns:
+            df: Pandas dataframe
+        """
         try:
-            conn = self.createConnection()
+            conn = self.create_connection()
             df = pd.read_sql(sql, conn)
             return df
         except Exception as e:
             print(e)
 
-    # # TODO: Convert lookup tables to CSV files (instead of Excel)
     def read_pelv_curves(self, flood_type):
+        """Read PELV curves from lookup table
+
+        Args:
+            flood_type (str): Flood type (Riverine; Coastal A; Coastal V)
+
+        Returns:
+            data: Pandas dataframe with PELV lookup values.
+        """
         if flood_type in ('Riverine', 'CAE', 'Coastal A'):
             sheet_name = 'PELV A'
         else:
@@ -85,10 +124,13 @@ class PELV():
         return data
 
     def to_csv(self, df, path, line_terminator=None, drop_geom=False):
-        """ Exports a StudyRegionDataFrame to an Esri Shapefile
+        """ Export Pandas dataframe to CSV
 
-            Keyword Arguments: \n
-                path: str -- the output directory path, file name, and extention (example: 'C:/directory/filename.shp')
+        Args:
+            df (dataframe): Pandas dataframe to export to CSV
+            path (str): Path to store CSV file
+            line_terminator (str, optional): CSV line terminator. Defaults to None.
+            drop_geom (bool, optional): Drop geometry column. Defaults to False.
         """
         try:
             if drop_geom and 'geometry' in df.columns:
@@ -102,10 +144,11 @@ class PELV():
             print(e)
 
     def to_geojson(self, df, path):
-        """ Exports a StudyRegionDataFrame to an Esri Shapefile
+        """Export Geopandas dataframe to GeoJSON file
 
-            Keyword Arguments: \n
-                path: str -- the output directory path, file name, and extention (example: 'C:/directory/filename.shp')
+        Args:
+            df (dataframe): Geopandas dataframe to export to GeoJSON
+            path (str):  Path to store GeoJSON file
         """
         try:
             # TODO: Add check that input data is only POINT data
@@ -118,10 +161,11 @@ class PELV():
             print(e)
 
     def to_shapefile(self, df, path):
-        """ Exports a StudyRegionDataFrame to an Esri Shapefile
+        """Export Geopandas dataframe to an ESRI Shapefile
 
-            Keyword Arguments: \n
-                path: str -- the output directory path, file name, and extention (example: 'C:/directory/filename.shp')
+        Args:
+            df (dataframe): Geopandas dataframe to export to shapefile
+            path (str):  Path to store shapefile
         """
         try:
             # TODO: Add check that input data is only POINT data
@@ -144,8 +188,15 @@ class PELV():
         except Exception as e:
             print(e)
 
-    # Get tract (from ESRI REST API)
     def get_tracts_api(self, points):
+        """Get tracts from ESRI REST API (if no SQL Server instance for HAZUS)
+
+        Args:
+            points (dataframe): UDF point data
+
+        Returns:
+            points_in_tracts (dataframe): Tracts containing UDF point data
+        """
         try:
             if 'Tract' in points.columns:
                 points_no_dupes = points.drop_duplicates(subset='Tract')
@@ -218,6 +269,15 @@ class PELV():
             print('\n')
 
     def intersect_tracts(self, points, tracts):
+        """Spatial intersect UDF point data with tract polygons
+
+        Args:
+            points (dataframe): UDF points
+            tracts (dataframe): Tract polygons
+
+        Returns:
+            points_in_tracts (dataframe): Geopandas dataframe for UDF points intersecting tracts
+        """
         points_in_tracts = gpd.sjoin(points, tracts)
         points_in_tracts = points_in_tracts.rename(
             columns={'Tract_right': 'Tract'})
@@ -225,6 +285,11 @@ class PELV():
         return points_in_tracts
 
     def check_for_hazus(self):
+        """Check if HAZUS SQL Server instance is installed
+
+        Returns:
+            bool: True/False
+        """
         try:
             proc = subprocess.Popen(
                 'osql -L', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -241,6 +306,14 @@ class PELV():
         pass
 
     def get_pelv_depths(self, data):
+        """Get PELV depths & AAL from lookup tables
+
+        Args:
+            data (dataframe): Pandas dataframe
+
+        Returns:
+            data_merged (dataframe): UDF & PELV data merged with AAL lookup table
+        """
         # Reference AAL spreadsheet - skip first row
         lookup_data = pd.read_excel(
             r'./Lookuptables/AAL.xlsx', engine='openpyxl', header=1)
@@ -262,12 +335,9 @@ class PELV():
         # Rename columns
         lookup_data = lookup_data.rename(columns=new_column_names)
         # Join tables
-        # TODO: Adjust PELV_50 name (to/from PELV_Median_Label)
         data_merged = pd.merge(data, lookup_data, how="inner", left_on='PELV_Median_Label', right_on="PELV_50")
         return data_merged
 
 
-
-    # ----JIRA 916 Notes----
     # TODO: Create list of tracts that do not intersect a tract
     # TODO: Query Census REST API for nearest Tract neighbor (if no intersect)

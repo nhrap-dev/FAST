@@ -94,7 +94,6 @@ class select_flood_type_frame(ttk.Frame):
     def _set_floodtype(self, *args):
         ''' '''
         self.controller.selected_flood_type.set(self.combobox_floodtype.get())
-        # TODO: Get Flood Hazard Type from here - BC
         print(f"Selection Flood Type: {self.controller.selected_flood_type.get()}")
 
     def _set_selected_flood_type_converted(self, *args):
@@ -297,17 +296,17 @@ class select_raster_aal_frame(ttk.Frame):
             self.rp_names.append(f"Return Period {x}")
 
         for i, name in enumerate(self.rp_names):
-            #create the label, entrybox and combobox for the user to input data and select raster
+            # Create label, entrybox and combobox for user to input data and select raster(s)
             lab = tk.Label(self.canvas_frame, text=name+':')
             lab.grid(column=0, row=i, sticky='w')
             self.labels[name] = lab
-            # Return periods
+            # Set return periods
             sv = tk.StringVar()
             sv.trace("w", lambda name, index, mode, sv=sv, i=i: self._set_return_periods(sv, index, i))
             ent = tk.Entry(self.canvas_frame, width=10, validate='key', textvariable=sv, validatecommand=vcmd)
             ent.grid(column=1, row=i, sticky='w')
             self.entries[name] = ent
-            # Rasters
+            # Set rasters
             combo = ttk.Combobox(self.canvas_frame, width=65)
             combo.configure(values=self.controller.rasters)
             combo.config(state='readonly')
@@ -324,31 +323,9 @@ class select_raster_aal_frame(ttk.Frame):
         self.selected_rasters[i] = selected_raster
         self.controller.selected_rasters_aal[i] = selected_raster
 
-    # def _set_selected_rasters_aal(self, *args):
-    #     selected_rasters = []
-    #     for i in self.listbox_raster.curselection():
-    #         selected_rasters.append(self.listbox_raster.get([i]))
-    #     self.controller.selected_rasters_aal = selected_rasters
-    #     print(f'Selected Rasters AAL: {self.controller.selected_rasters_aal}')
-
-
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def _print_rp_names(self):
-        ''' Iterate over the return period names to get the label, entry and combobox values 
-            TODO use this to create a dictionary to set self.controller.selected_rasters_aal
-        '''
-        for name in self.rp_names:
-            #label = self.labels[name] # todo get text # can use name instead as its the same
-            entry = self.entries[name].get()
-            raster = self.comboboxes[name].get()
-            print(f"Label: {name} Entry: {entry} Raster: {raster}")
-
-        #todo show only six rows and add scroll bar
-        #todo pair rp and raster, when to do this?
-        #todo set self.controller.selected_rasters_aal {} as rp:raster
 
 class select_raster_all_pelv_frame(ttk.Frame):
     ''' 1 depth grid that represents 100 year return period 
@@ -406,7 +383,6 @@ class select_udf_frame(ttk.Frame):
     def _set_udf_fields_mapped(self):
         ''' Map the user selected fields using exernal module '''
         if self.controller.selected_udf.get() != '': #avoid error if user cancels file selection
-            # TODO: Remove udf_field_mapping reference - BC
             mapped_fields_list = map_udf_fields(self.controller.selected_udf.get())
             self.controller.selected_udf_fields_mapped = mapped_fields_list.mapped_fields #create list of tuples for iput into treeview widget
             self.controller.selected_udf_fields_mapped_ordered = mapped_fields_list.mapped_fields_ordered #create list of ordered fields for input to udf
@@ -487,7 +463,6 @@ class review_field_mapping_frame(ttk.Frame):
             else:
                 tag = ''
             self.treeview_mappedfields.insert(parent='', index=counter, iid=counter, text='', values=(row[0], row[1], row[2]), tags=(tag,))
-            #print(row)
             counter +=1
 
     def _trace_when_file_is_selected(self, *args):
@@ -509,7 +484,7 @@ class bottom_buttons_frame(ttk.Frame):
         
     def _create_widgets(self):
         self.button_run = ttk.Button(self, text="Run") 
-        self.button_run.configure(command=self._run)# TODO call appropriate analysis function based on analysis type and what Brian has setup
+        self.button_run.configure(command=self._run)
         self.button_run.grid(column=0, row=0, sticky='e')
 
         self.button_quit = ttk.Button(self, text="Quit")
@@ -544,7 +519,7 @@ class bottom_buttons_frame(ttk.Frame):
                 fmap = udf_args[:-1]
                 rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
                 runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type)
-                haz = runUDF.get_flood_damage()
+                runUDF.get_flood_damage()
             if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL)':
                 rasters = [raster for raster in self.controller.selected_rasters_aal.values()]
                 return_periods = [rp for rp in self.controller.selected_return_periods_aal.values()]
@@ -556,10 +531,9 @@ class bottom_buttons_frame(ttk.Frame):
                 lookup_tables = os.path.join(os.getcwd(), 'lookuptables')
                 results_dir = os.path.dirname(udf)
                 fmap = udf_args[:-1]
-                #return_periods = (lambda .0: [ rp for rp in .0 ])(return_periods.values())
                 rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
                 runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type, analysis_type, return_periods)
-                haz = runUDF.get_flood_damage()
+                runUDF.get_flood_damage()
             if self.controller.selected_analysis_type.get() == 'Average Annualized Loss (AAL) with PELV':
                 rasters = []
                 raster = self.controller.selected_raster_aal_pelv.get()
@@ -575,9 +549,8 @@ class bottom_buttons_frame(ttk.Frame):
                 rasters = [os.path.join(os.getcwd(), 'rasters', raster) for raster in rasters]
                 print(f"Selected PELV Raster: {', '.join(rasters)}")
                 runUDF = UDF(udf, lookup_tables, results_dir, rasters, 'False', fmap, flood_type, analysis_type)
-                haz = runUDF.get_flood_damage()
+                runUDF.get_flood_damage()
 
-        
     def _check_selections(self):
         ''' Check if all selections are made, if not prompt user
             Return true unless missing a selection 

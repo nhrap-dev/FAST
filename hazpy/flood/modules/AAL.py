@@ -16,19 +16,25 @@ class AAL():
         self.export_sum()
 
     def get_aal(self, item, rp, recalc_fields, previous_item=None, previous_rp=None, next_item=None, next_rp=None):
-        """
-        "The AAL is calculated for each structure using the formula:
-
+        """The AAL is calculated for each structure using the formula:
                 AAL = Ln*(1/n-1/(n+1))/2+Ln*(1/(n-1)-1/(n+1))/2+....+Ln*(1/(n-1)-1/(n+1))/2+Ln*(1/(n-1)-1/(n))/2
-
                 where n is the return period frequency
-
                 Ex: If return periods 10, 25, 50 and 100 are provided the formula will be:
-
                 AAL = L10*(1/10-1/25)/2 + L25*(1/10-1/50)/2 + L50*(1/25-1/100)/2 + L100*(1/50-1/100)/2
-
                 * L = Loss field
                 * n = return period frequency
+
+        Args:
+            item (dataframe): Pandas dataframe
+            rp (str): Return period
+            recalc_fields (list): Fields to re-calculate
+            previous_item (dataframe, optional): Previous return period dataframe. Defaults to None.
+            previous_rp (str, optional): Previous return period. Defaults to None.
+            next_item (dataframe, optional): Next return period dataframe.. Defaults to None.
+            next_rp (str, optional): Next return period. Defaults to None.
+
+        Returns:
+            None
         """
         print(f'Calculating AAL for return period {rp}...')
         try:
@@ -77,11 +83,19 @@ class AAL():
             print(e)
     
     def export_df(self, item, rp):
+        """Export return period dataframe to CSV
+
+        Args:
+            item (dataframe): Pandas dataframe
+            rp (str): Return period
+        """
         path = f'{self.output_path}{self.output_file}-{rp}-AAL.csv'
         line_terminator='\n'
         item.to_csv(path, index=False, line_terminator=line_terminator)
 
     def export_sum(self):
+        """Export aggregated (sum) of all losses to CSV
+        """
         group_columns_list = [
             'FltyId',
             'Occ',
@@ -125,6 +139,8 @@ class AAL():
         df_final.to_csv(path, index=False, line_terminator=line_terminator)
 
     def set_aal_items(self):
+        """Set all AAL items & iterate return periods for AAL calculations
+        """
         recalc_fields = [
             'BldgLossUSD',
             'ContentLossUSD',
