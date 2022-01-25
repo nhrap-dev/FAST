@@ -47,8 +47,8 @@
   },
   "dev": {
     "hazpyInitUrl": "https://raw.githubusercontent.com/nhrap-dev/hazpy/dev/hazpy/__init__.py",
-    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/refs/heads/dev.zip",
-    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/feat-User-Provided-Multi-Return-Periods/src/__init__.py",
+    "repoZipfileUrl": "https://github.com/nhrap-dev/FAST/archive/refs/heads/feat-add-pelv-curves.zip",
+    "toolInitUrl": "https://raw.githubusercontent.com/nhrap-dev/FAST/feat-add-pelv-curves/src/__init__.py",
     "virtualEnvironment": "hazus_fast_env",
     "pythonPackage": "hazpy",
     "httpTimeout": 5
