@@ -57,14 +57,16 @@ class UDF:
             raster['Depth_in_Struc'] = raster.apply(fn_depth_grid, axis=1).astype(str).str.slice(0, 15).astype(float).round(6)
             # Check if UDF in the specified floodplain (Boolean)
             raster['flExp'] = raster.apply(lambda x: 1 if x['Depth_in_Struc'] != -3.402823 else 0, axis=1)
-            raster.drop(['index_right', 'Depth', 'geometry'], axis=1, inplace=True)
+            #raster.drop(['index_right', 'Depth', 'geometry'], axis=1, inplace=True)
+            raster.drop(['Depth', 'geometry'], axis=1, inplace=True)
         else:
             fn_depth_grid = lambda row: row['Depth'] - float(row['FirstFloorHt']) if row['Depth'] >= 0 else row['Depth']
             raster['Depth_Grid'] = raster['Depth'].astype(str).str.slice(0, 15).astype(float).round(6)
             raster['Depth_in_Struc'] = raster.apply(fn_depth_grid, axis=1).astype(str).str.slice(0, 15).astype(float).round(6)
             # Check if UDF in the specified floodplain (Boolean)
             raster['flExp'] = raster.apply(lambda x: 1 if x['Depth_in_Struc'] != -3.402823 else 0, axis=1)
-            raster.drop(['index_right', 'Depth', 'geometry'], axis=1, inplace=True)
+            #raster.drop(['index_right', 'Depth', 'geometry'], axis=1, inplace=True)
+            raster.drop(['Depth', 'geometry'], axis=1, inplace=True)
         return raster
 
     def change_directory(self):
@@ -218,11 +220,10 @@ class UDF:
                 # self.check_optional_fields()
             aal_df_list = []
             for depth_grid in self.DepthGrids:
-                raster_df = self.get_depth_grid(depth_grid)
                 file_name = os.path.splitext(os.path.basename(depth_grid))[0]
                 print(f'Calculating Standard Losses for {file_name} Depth Grid...')
                 point_gdf = self.create_geo_df(input)
-                point_depths = self.spatial_join(point_gdf, raster_df)
+                point_depths = self.get_depth_grid(depth_grid, point_gdf)
                 point_depths = self.adjust_depths(point_depths)
                 # self.check_coastal_zone()     --> "" if CoastalZoneCode is None else CoastalZoneCode
                 # self.check_basement()         --> sosuf = 'B' if foundationType == 4 else 'N'
@@ -448,6 +449,7 @@ class UDF:
             df = df.merge(lookup_df, how='left', left_on='Occ', right_on='Occupancy')
         except Exception as e:
             print(e)
+            print('An error occurred in the first part of Inventory Loss')
         df.fillna(0, inplace=True)
         df['l_index'] = np.where(df['Depth_in_Struc'].apply(np.floor) < 0, 'm', 'p') + df['Depth_in_Struc'].abs().apply(np.floor).astype(str).apply(lambda x: x.replace('.0',''))
         df['u_index'] = np.where(df['Depth_in_Struc'].apply(np.ceil) < 0, 'm', 'p') + df['Depth_in_Struc'].abs().apply(np.ceil).astype(str).apply(lambda x: x.replace('.0',''))
@@ -462,35 +464,26 @@ class UDF:
             return df
         except Exception as e:
             print(e)
+            print('An error occurred in the second part of Inventory Loss')
 
-    def get_depth_grid(self, depth_grid):
+    def get_depth_grid(self, depth_grid, point_gdf):
         """Get raster depths
 
         Args:
             depth_grid (raster): User-provided depth-grid raster
+            point_gdf (dataframe): Pandas dataframe for user-provided UDF data
 
         Returns:
-            geodataframe: Geopandas raster dataframe
+            geodataframe: Geopandas dataframe with GridName & Depth attributes from depth grid
         """
-        with rio.Env(GDAL_CACHEMAX=2**30*5):
-            with rio.open(depth_grid) as grid:
-                crs = grid.crs
-                is_utm = self.check_utm(grid)
-                mask = grid.read_masks(1)
-                print(f'Is depth grid raster projection UTM? {is_utm}')
-                print('Reading depth grid...')
-                image = grid.read(1) # first band
-                results = (
-                {'properties': {'Depth': v}, 'geometry': s}
-                for i, (s, v) 
-                in enumerate(
-                    shapes(image, mask=mask, transform=grid.transform))
-                )
-        geoms = list(results)
-        polygon_raster = gpd.GeoDataFrame.from_features(geoms)
-        polygon_raster = polygon_raster.set_crs(crs)
-        polygon_raster.name = os.path.split(depth_grid)[1]
-        return polygon_raster
+        point_gdf['GridName'] = os.path.splitext(os.path.basename(depth_grid))[0]
+        depth_grid = rio.open(depth_grid)
+        depth_grid.read(1)
+        point_data = point_gdf.to_crs(depth_grid.crs.to_dict())
+        coord_list = [(x,y) for x,y in zip(point_data['geometry'].x , point_data['geometry'].y)]
+        point_data['Depth'] = [x for x in depth_grid.sample(coord_list, masked=True)]
+        point_data['Depth'] = point_data.Depth.astype(str).str.replace('\[|\]|\'', '').str.replace('--', '0').astype(float)
+        return point_data
 
     def get_content_multiplier(self, occ):
         """Get content multiplier for ContentCostUSD
@@ -812,21 +805,6 @@ class UDF:
         """
         fields = ['BldgDmgPct', 'BldgLossUSD', 'ContentCostUSD', 'ContDmgPct', 'ContentLossUSD', 'InventoryCostUSD', 'InvDmgPct', 'InventoryLossUSD', 'flExp', 'SOID' , 'BDDF_ID', 'CDDF_ID', 'IDDF_ID' , 'DebrisID', 'Debris_Fin' , 'Debris_Struc' , 'Debris_Found' , 'Debris_Tot' , 'GridName', 'Restor_Days_Min', 'Restor_Days_Max']
 
-    def spatial_join(self, points, raster):
-        """Spatial join for UDF points in depth grid raster
-
-        Args:
-            points (geodataframe):  Geopandas geodataframe for UDF points
-            raster (geodataframe):  Geopandas geodataframe for raster depth grid
-
-        Returns:
-            geodataframe: Geopandas geodataframe for points intersecting/within depth grid raster
-        """
-        points = points.to_crs(raster.crs.to_dict())
-        points_in_raster = gpd.sjoin(points, raster, how='left', op='within')
-        points_in_raster['GridName'] = raster.name
-        return points_in_raster
-
     def write_csv(self, df, path):
         """Write results to CSV file
 
@@ -999,9 +977,8 @@ class UDF:
         """
         for pelv_number in pelv_depths_id_list:
             print(f'Calculating PELV for return period {pelv_number}...')
-            raster_df = self.get_depth_grid(depth_grid)
             point_gdf = self.create_geo_df(input)
-            point_depths = self.spatial_join(point_gdf, raster_df)
+            point_depths = self.get_depth_grid(depth_grid, point_gdf)
             pelv_col = pelv_data_merged[pelv_number]
             pelv_median_col = pelv_data_merged['PELV_Median']
             pelv_median_label_col = pelv_data_merged['PELV_Median_Label']
