@@ -18,5 +18,4 @@ class MyApplication(tk.Tk):
 
 if __name__ == "__main__":
     app = MyApplication()
-    ctypes.windll.user32.ShowWindow( ctypes.windll.kernel32.GetConsoleWindow(), 6) # minimize the console window
     app.mainloop()
