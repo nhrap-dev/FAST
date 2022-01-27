@@ -278,6 +278,10 @@ class PELV():
         Returns:
             points_in_tracts (dataframe): Geopandas dataframe for UDF points intersecting tracts
         """
+        # Convert points to geodataframe
+        crs = {'init': 'epsg:4326'}
+        points = gpd.GeoDataFrame(
+            points, geometry=gpd.points_from_xy(points.Longitude, points.Latitude, crs=crs))
         points_in_tracts = gpd.sjoin(points, tracts)
         points_in_tracts = points_in_tracts.rename(
             columns={'Tract_right': 'Tract'})
