@@ -67,7 +67,6 @@ class Manage:
         if len(condaPaths) > 0:
             return True
         else:
-        # TODO: Download miniforge
             return False
 
     # TODO: See if this is still needed - BC
@@ -298,12 +297,26 @@ class Manage:
                     0x1000 | 0x4,
                 )
         else:
+            print('Conda is needed to run this application.')
+            # Download miniforge
+            print('Installing miniforge...')
+            call('python ./src/install-miniforge.py', shell=False)
+            #res = run('python ./src/install-miniforge.py', shell=False, capture_output=True)
+            #if res.returncode == 0:
+         # run('python ./src/install-miniforge.py', shell=False)
             self.messageBox(
                 0,
-                u"Error: Unable to find conda in the system PATH variable. Add conda to your PATH and try again.\n If this problem persists, contact hazus-support@riskmapcds.com.",
-                u"HazPy",
-                0x1000 | 0x4,
+                u"Miniforge is now installed. Please re-run tool.",
+                u"FAST",
+                0
             )
+            # else:
+            #     self.messageBox(
+            #         0,
+            #         u"Miniforge did not install",
+            #         u"FAST",
+            #         0x1000 | 0x4,
+            # )
 
     def update_environment(self):
         """Update Environment if version has changed"""
