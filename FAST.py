@@ -6,8 +6,8 @@ try:
         try:
             print('Python 2 is default interpreter...going to try Python 3')
             py_check = check_output('where python').split('\r\n')
-            py3_interpreter = ''.join([i for i in py_check if 'Python3' in i])
-            the_call = py3_interpreter + ' ' + sys.argv[0]
+            py3_interpreter = [i for i in py_check if 'Python3' in i or 'miniforge' in i]
+            the_call = py3_interpreter[0] + ' ' + sys.argv[0]
             call(the_call)
         except Exception as e:
             print(e)
