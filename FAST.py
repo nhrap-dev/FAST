@@ -13,8 +13,12 @@ try:
             print(e)
             raw_input('Hit enter to continue...')
     else:
+        # Check if requests module is installed
+        try:
+            import requests
+        except ModuleNotFoundError:
+            call('python -m pip install requests', shell=False)
         from src.manage import Manage
-    
         if __name__=='__main__':
             manage = Manage()
             app_path = './gui_program.py'
