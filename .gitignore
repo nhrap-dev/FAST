@@ -109,3 +109,8 @@ GDAL
 
 # VSCode workspace
 *.code-workspace
+.vs/VSWorkspaceState.json
+.vs/slnx.sqlite
+.vs/PythonSettings.json
+.vs/ProjectSettings.json
+.vs/FAST/v16/.suo

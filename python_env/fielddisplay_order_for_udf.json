@@ -1,0 +1,17 @@
+{
+  "User Defined Flty Id*": 1,
+  "Occupancy Class*": 2,
+  "Building Cost*": 3,
+  "Building Area*": 4,
+  "Number of Stories*": 5,
+  "Foundation Type*": 6,
+  "First Floor Height*": 7,
+  "Content Cost": 8,
+  "Building DDF": 9,
+  "Content DDF": 10,
+  "Inventory DDF": 11,
+  "Inventory Cost": 12,
+  "Specific Occupancy ID": 13,
+  "Latitude*": 14,
+  "Longitude*": 15
+}

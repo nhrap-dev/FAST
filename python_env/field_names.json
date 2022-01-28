@@ -1,0 +1,19 @@
+{
+  "Area": "Building Area*",
+  "BDDF_ID": "Building DDF",
+  "CDDF_ID": "Content DDF",
+  "ContentCost": "Content Cost",
+  "Cost": "Building Cost*",
+  "FirstFloorHt": "First Floor Height*",
+  "flC": "Coastal Flooding attribute (flC)*",
+  "FoundationType": "Foundation Type*",
+  "IDDF_ID": "Inventory DDF",
+  "InvCost": "Inventory Cost",
+  "Latitude": "Latitude*",
+  "Longitude": "Longitude*",
+  "NumStories": "Number of Stories*",
+  "OCC": "Occupancy Class*",
+  "raster": "Depth Grid (ft)**",
+  "SOID": "Specific Occupancy ID",
+  "UserDefinedFltyId": "User Defined Flty Id*"
+}

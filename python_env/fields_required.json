@@ -1,0 +1,17 @@
+{
+  "Area": 1,
+  "Cost": 1,
+  "FirstFloorHt": 1,
+  "FoundationType": 1,
+  "Latitude": 1,
+  "Longitude": 1,
+  "NumStories": 1,
+  "OCC": 1,
+  "UserDefinedFltyId": 1,
+  "BDDF_ID": 0,
+  "CDDF_ID": 0,
+  "ContentCost": 0,
+  "IDDF_ID": 0,
+  "InvCost": 0,
+  "SOID": 0
+}

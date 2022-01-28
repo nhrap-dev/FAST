@@ -6,17 +6,22 @@ try:
         try:
             print('Python 2 is default interpreter...going to try Python 3')
             py_check = check_output('where python').split('\r\n')
-            py3_intepreter = ''.join([i for i in py_check if 'miniforge' in i])
-            the_call = py3_intepreter + ' ' + sys.argv[0]
+            py3_interpreter = [i for i in py_check if 'Python3' in i or 'miniforge' in i]
+            the_call = py3_interpreter[0] + ' ' + sys.argv[0]
             call(the_call)
         except Exception as e:
             print(e)
+            raw_input('Hit enter to continue...')
     else:
+        # Check if requests module is installed
+        try:
+            import requests
+        except ModuleNotFoundError:
+            call('python -m pip install requests', shell=False)
         from src.manage import Manage
-    
         if __name__=='__main__':
             manage = Manage()
-            app_path = 'gui_program.py'
+            app_path = './gui_program.py'
             try:
                 manage.checkForUpdates()
                 manage.startApp(app_path)
@@ -25,3 +30,8 @@ try:
 
 except Exception as e:
     print(e)
+    try:
+        input('Hit enter...')
+    except:
+        raw_input('Hit enter...')
+ 
