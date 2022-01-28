@@ -106,6 +106,18 @@ class UDF:
     """
         pass
 
+    def create_output_folders(self):
+        """Create folders to store results
+        """
+        sub_folders = ['standard', 'aal', 'pelv']
+        # Check if output folder exists
+        if not os.path.exists('./UDF/output'):
+            output_dir = './UDF/output/'
+            # Create output folder (if doesn't exist)
+            os.mkdir(output_dir)
+            # Create subfolders
+            [os.mkdir(f'{output_dir}{sub_folder}') for sub_folder in sub_folders]
+
     def create_geo_df(self, input):
         """Create Geopandas dataframe
 
@@ -204,6 +216,7 @@ class UDF:
             #print(f'\nStart time: {start_time}\n')
             #QC_Warning = self.QC_Warning.lower() == 'true'
         #    self.log_messages()
+            self.create_output_folders()
             self.change_directory()
             input = self.read_csv(self.UDFOrig)
             input_fields = self.get_field_names(input)
