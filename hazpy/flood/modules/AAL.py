@@ -116,7 +116,6 @@ class AAL():
         df_final.fillna(0, inplace=True)
         # Sort columns
         df_final = df_final.sort_index(axis=1)
-        df_final['FltyId'] = df_final['FltyId'].astype(int)
         df_final.sort_values(by=['FltyId'], inplace=True)
         # Re-order columns
         column_order_list = [

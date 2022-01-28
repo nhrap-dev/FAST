@@ -209,6 +209,10 @@ class UDF:
             input_fields = self.get_field_names(input)
             # TODO: Check that input columns df has the required fields --> compare list(input.columns) to required_fields
             required_fields = ['UserDefinedFltyId', 'FltyId', 'OccupancyClass', 'Occ', 'Cost', 'Area', 'NumStories', 'FoundationType', 'FirstFloorHt', 'latitude', 'longitude', 'Latitude', 'Longitude']
+            if 'UserDefinedFltyId' in input.columns:
+                input = input.rename(
+                    columns={'UserDefinedFltyId': 'FltyId'}
+                )
             field_check = self.check_fields(input_fields, required_fields)
             print(f'\nAre all required fields provided? {field_check}\n')
             self.set_output_fields()
